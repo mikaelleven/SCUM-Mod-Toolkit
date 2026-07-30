@@ -277,11 +277,18 @@ Describe 'Release asset verification' {
 
 Describe 'External command contracts' {
     BeforeEach {
+        $script:testAesKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
         Mock Get-ToolExecutable { 'C:\Tools\mock.exe' }
         Mock Invoke-ExternalTool {}
+        Mock Get-RepakAesArguments {
+            if ($OmitKey) {
+                return @()
+            }
+            return @('--aes-key', $script:testAesKey)
+        }
     }
 
-    It 'uses PAK V11 when packing' {
+    It 'uses the configured AES key and PAK V11 when packing' {
         $source = Join-Path $TestDrive 'input'
         [void][System.IO.Directory]::CreateDirectory($source)
         $output = Join-Path $TestDrive 'output.pak'
@@ -290,15 +297,17 @@ Describe 'External command contracts' {
 
         Assert-MockCalled Invoke-ExternalTool -Times 1 -ParameterFilter {
             $Executable -eq 'C:\Tools\mock.exe' -and
-            $ToolArguments[0] -eq 'pack' -and
-            $ToolArguments[1] -eq '--version' -and
-            $ToolArguments[2] -eq 'V11' -and
-            $ToolArguments[3] -eq $source -and
-            $ToolArguments[4] -eq $output
+            $ToolArguments[0] -eq '--aes-key' -and
+            $ToolArguments[1] -eq $script:testAesKey -and
+            $ToolArguments[2] -eq 'pack' -and
+            $ToolArguments[3] -eq '--version' -and
+            $ToolArguments[4] -eq 'V11' -and
+            $ToolArguments[5] -eq $source -and
+            $ToolArguments[6] -eq $output
         }
     }
 
-    It 'uses an explicit output directory when unpacking' {
+    It 'uses the configured AES key and an explicit output directory when unpacking' {
         $pak = Join-Path $TestDrive 'input.pak'
         [System.IO.File]::WriteAllText($pak, 'pak')
         $output = Join-Path $TestDrive 'unpacked'
@@ -306,8 +315,42 @@ Describe 'External command contracts' {
         Invoke-Unpack -PakPath $pak -OutputPath $output
 
         Assert-MockCalled Invoke-ExternalTool -Times 1 -ParameterFilter {
+            $ToolArguments -join '|' -eq "--aes-key|$script:testAesKey|unpack|--output|$output|$pak"
+        }
+    }
+
+    It 'omits the AES key from pack when requested' {
+        $source = Join-Path $TestDrive 'input'
+        [void][System.IO.Directory]::CreateDirectory($source)
+        $output = Join-Path $TestDrive 'output.pak'
+
+        Invoke-Pack -SourcePath $source -OutputPath $output -OmitKey
+
+        Assert-MockCalled Invoke-ExternalTool -Times 1 -ParameterFilter {
+            $ToolArguments -join '|' -eq "pack|--version|V11|$source|$output"
+        }
+    }
+
+    It 'omits the AES key from unpack when requested' {
+        $pak = Join-Path $TestDrive 'input.pak'
+        [System.IO.File]::WriteAllText($pak, 'pak')
+        $output = Join-Path $TestDrive 'unpacked'
+
+        Invoke-Unpack -PakPath $pak -OutputPath $output -OmitKey
+
+        Assert-MockCalled Invoke-ExternalTool -Times 1 -ParameterFilter {
             $ToolArguments -join '|' -eq "unpack|--output|$output|$pak"
         }
+    }
+
+    It 'recognizes both omit-key CLI aliases in any position' {
+        $short = Split-SKitFileArguments -FileArguments @('-o', 'input', 'output')
+        $long = Split-SKitFileArguments -FileArguments @('input', '-omit-key')
+
+        $short.OmitKey | Should -BeTrue
+        $short.Paths -join '|' | Should -Be 'input|output'
+        $long.OmitKey | Should -BeTrue
+        $long.Paths -join '|' | Should -Be 'input'
     }
 
     It 'exports UAsset JSON with VER_UE4_27 by default' {
@@ -441,6 +484,15 @@ Describe 'Global SKit configuration' {
         $config.ScumPath | Should -Be 'C:\Games\SCUM'
         $config.ScumAesKey | Should -Be $expectedKey
         $config.ScumStartParams | Should -Be '-windowed -ResX=1920'
+    }
+
+    It 'provides the configured AES key to repak unless omitted' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        Write-SKitConfig -ScumAesKey $expectedKey
+
+        @(Get-RepakAesArguments) -join '|' |
+            Should -Be "--aes-key|$expectedKey"
+        @(Get-RepakAesArguments -OmitKey).Count | Should -Be 0
     }
 
     It 'stores the detected executable and installation root in SCUM-Mod-Toolkit.yaml' {

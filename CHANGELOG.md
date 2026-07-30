@@ -2,6 +2,26 @@
 
 All notable SKit changes are documented in this file.
 
+## 1.1.0.5 - 2026-07-30
+
+### Added
+
+- MIT licensing for SKit and third-party notices for FModel, repak, and
+  UAssetGUI.
+- Repository ignore rules for downloaded tools, runtime configuration, AES
+  keys, game assets, and generated mod content.
+
+### Changed
+
+- `skit pack` and `skit unpack` now pass the configured SCUM AES key to
+  repak automatically.
+- Added `-o` and `-omit-key` to pack and unpack for explicitly omitting the
+  configured AES key.
+- Updated the README to require a user-supplied SCUM-specific AES key
+  without documenting a source.
+- Documented source-only distribution rules and the project's independent,
+  unofficial status.
+
 ## 1.1.0.4 - 2026-07-30
 
 ### Added

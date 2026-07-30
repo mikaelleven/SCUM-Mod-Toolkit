@@ -14,6 +14,9 @@ param(
     [Parameter(Position = 0)]
     [string]$Command = 'help',
 
+    [Alias('o', 'omit-key')]
+    [switch]$OmitKey,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Arguments
 )
@@ -22,7 +25,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.4'
+$script:SKitVersion = '1.1.0.5'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -450,10 +453,44 @@ function Invoke-ExternalTool {
     }
 }
 
+function Get-RepakAesArguments {
+    param([switch]$OmitKey)
+
+    if ($OmitKey) {
+        return @()
+    }
+
+    $config = Merge-SKitConfig
+    if ([string]::IsNullOrWhiteSpace($config.ScumAesKey)) {
+        return @()
+    }
+    return @('--aes-key', $config.ScumAesKey)
+}
+
+function Split-SKitFileArguments {
+    param([string[]]$FileArguments = @())
+
+    $omitKey = $false
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($argument in $FileArguments) {
+        if ($argument -in @('-o', '-omit-key')) {
+            $omitKey = $true
+            continue
+        }
+        $paths.Add($argument)
+    }
+
+    return [pscustomobject]@{
+        OmitKey = $omitKey
+        Paths    = $paths.ToArray()
+    }
+}
+
 function Invoke-Unpack {
     param(
         [Parameter(Mandatory)][string]$PakPath,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [switch]$OmitKey
     )
 
     $source = Resolve-FullPath -Path $PakPath
@@ -469,17 +506,20 @@ function Invoke-Unpack {
     }
 
     $repak = Get-ToolExecutable -Tool repak
-    Invoke-ExternalTool -Executable $repak -ToolArguments @(
+    $toolArguments = @(Get-RepakAesArguments -OmitKey:$OmitKey)
+    $toolArguments += @(
         'unpack',
         '--output', $destination,
         $source
     )
+    Invoke-ExternalTool -Executable $repak -ToolArguments $toolArguments
 }
 
 function Invoke-Pack {
     param(
         [Parameter(Mandatory)][string]$SourcePath,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [switch]$OmitKey
     )
 
     $source = Resolve-FullPath -Path $SourcePath
@@ -500,12 +540,14 @@ function Invoke-Pack {
 
     [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($destination)) | Out-Null
     $repak = Get-ToolExecutable -Tool repak
-    Invoke-ExternalTool -Executable $repak -ToolArguments @(
+    $toolArguments = @(Get-RepakAesArguments -OmitKey:$OmitKey)
+    $toolArguments += @(
         'pack',
         '--version', 'V11',
         $source,
         $destination
     )
+    Invoke-ExternalTool -Executable $repak -ToolArguments $toolArguments
 }
 
 function Convert-UAssetToJson {
@@ -1546,8 +1588,10 @@ Setup:
   skit setup help                          Show setup commands
 
 Files:
-  skit unpack <file.pak> [output-dir]       Unpack a .pak with repak
-  skit pack <input-dir> [output.pak]        Pack a directory as UE PAK V11
+  skit unpack <file.pak> [output-dir] [-o|-omit-key]
+                                              Unpack a .pak with repak
+  skit pack <input-dir> [output.pak] [-o|-omit-key]
+                                              Pack a directory as UE PAK V11
   skit tojson <file.uasset> [version] [mappings]
                                               Export as <file>.full.json
   skit fromjson <file.json> [output.uasset] [mappings]
@@ -1688,14 +1732,26 @@ function Invoke-SKitCommand {
                 Invoke-SKitSetupCommand -SetupArguments $Arguments
             }
             'unpack' {
-                if ($Arguments.Count -lt 1) { throw 'Usage: skit unpack <file.pak> [output-dir]' }
-                $output = if ($Arguments.Count -gt 1) { $Arguments[1] } else { $null }
-                Invoke-Unpack -PakPath $Arguments[0] -OutputPath $output
+                $fileArguments = Split-SKitFileArguments -FileArguments $Arguments
+                if ($fileArguments.Paths.Count -lt 1 -or $fileArguments.Paths.Count -gt 2) {
+                    throw 'Usage: skit unpack <file.pak> [output-dir] [-o|-omit-key]'
+                }
+                $output = if ($fileArguments.Paths.Count -gt 1) { $fileArguments.Paths[1] } else { $null }
+                Invoke-Unpack `
+                    -PakPath $fileArguments.Paths[0] `
+                    -OutputPath $output `
+                    -OmitKey:($OmitKey -or $fileArguments.OmitKey)
             }
             'pack' {
-                if ($Arguments.Count -lt 1) { throw 'Usage: skit pack <input-dir> [output.pak]' }
-                $output = if ($Arguments.Count -gt 1) { $Arguments[1] } else { $null }
-                Invoke-Pack -SourcePath $Arguments[0] -OutputPath $output
+                $fileArguments = Split-SKitFileArguments -FileArguments $Arguments
+                if ($fileArguments.Paths.Count -lt 1 -or $fileArguments.Paths.Count -gt 2) {
+                    throw 'Usage: skit pack <input-dir> [output.pak] [-o|-omit-key]'
+                }
+                $output = if ($fileArguments.Paths.Count -gt 1) { $fileArguments.Paths[1] } else { $null }
+                Invoke-Pack `
+                    -SourcePath $fileArguments.Paths[0] `
+                    -OutputPath $output `
+                    -OmitKey:($OmitKey -or $fileArguments.OmitKey)
             }
             'tojson' {
                 if ($Arguments.Count -lt 1) { throw 'Usage: skit tojson <file.uasset> [engine-version] [mappings]' }

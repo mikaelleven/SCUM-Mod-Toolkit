@@ -6,7 +6,7 @@ project workflow for building, installing, and testing SCUM mods.
 
 ## Requirements
 
-- Windows 11
+- Windows 10+
 - Windows PowerShell 5.1 or later
 - An internet connection when installing tools
 - The current .NET Desktop Runtime versions required by FModel and UAssetGUI
@@ -22,15 +22,13 @@ Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
 .\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
-Only use `Unblock-File` after reviewing and trusting the script. Open a new
-terminal and install the tools:
+Only use `Unblock-File` after reviewing and trusting the script. Open a new terminal and install the tools:
 
 ```powershell
 skit setup tools
 ```
 
-If PowerShell blocks the script or cannot find the `skit` command, see
-[FAQ and troubleshooting](#faq-and-troubleshooting).
+If PowerShell blocks the script or cannot find the `skit` command, see [FAQ and troubleshooting](#faq-and-troubleshooting).
 
 SKit is installed in:
 
@@ -38,14 +36,11 @@ SKit is installed in:
 %LOCALAPPDATA%\Programs\SKit
 ```
 
-The directory is added to the user `PATH`. If SKit is not already installed,
-running `SCUM-Mod-Toolkit.ps1` directly also performs an initial
-self-installation. Run `skit setup self` again to update the installed copy.
-The installed script keeps the name `SCUM-Mod-Toolkit.ps1`, and `skit.cmd`
+The directory is added to the user `PATH`. If SKit is not already installed, running `SCUM-Mod-Toolkit.ps1` directly also performs an initial
+self-installation. Run `skit setup self` again to update the installed copy. The installed script keeps the name `SCUM-Mod-Toolkit.ps1`, and `skit.cmd`
 launches that file.
 
-Every downloaded release asset is verified against the SHA-256 value in the
-GitHub release metadata. Installation stops if a valid SHA-256 value is
+Every downloaded release asset is verified against the SHA-256 value in the GitHub release metadata. Installation stops if a valid SHA-256 value is
 missing or does not match.
 
 Let SKit detect SCUM automatically in the configured Steam libraries:
@@ -66,33 +61,9 @@ The setting is stored in:
 %LOCALAPPDATA%\Programs\SKit\SCUM-Mod-Toolkit.yaml
 ```
 
-During installation, values from legacy `skit.config.yml` and `SKit.yaml`
-files are merged into `SCUM-Mod-Toolkit.yaml`. Values in `SKit.yaml` take
-precedence over `skit.config.yml`, and values already present in
-`SCUM-Mod-Toolkit.yaml` take final precedence. The legacy files are retained
-as migration backups.
-
-Download the current AES key for SCUM:
-
-```powershell
-skit setup find-key
-```
-
-SKit locates the entry named `SCUM` on the source page regardless of its line
-number, validates that the value is a 256-bit hexadecimal key, and stores it
-as `SCUM-AES-Key.txt` in the current directory.
-
-To store the key directly in `SCUM-Mod-Toolkit.yaml`, use:
-
-```powershell
-skit setup get-key
-```
-
-If FModel has been started before and already has a SCUM game entry, SKit
-also updates the main AES key in FModel. Close FModel before running the
-command. SKit creates `AppSettings.json.skit-backup` before the first update.
-If FModel is unavailable or has no SCUM entry, the key is still stored in
-the SKit configuration.
+SCUM's original game archives require a SCUM-specific 256-bit AES key. You
+must locate that key yourself and enter it as `scumAesKey` in the global
+configuration. SKit does not provide or document where to obtain it.
 
 Open the global YAML configuration in the default associated editor:
 
@@ -100,8 +71,7 @@ Open the global YAML configuration in the default associated editor:
 skit setup open-config
 ```
 
-SKit creates the configuration first when it does not exist. If Windows
-cannot open the configured YAML editor, SKit falls back to Notepad.
+SKit creates the configuration first when it does not exist. If Windows cannot open the configured YAML editor, SKit falls back to Notepad.
 
 Show all setup commands:
 
@@ -127,7 +97,7 @@ The same values can be edited manually in
 ```yaml
 scumPath: 'D:\SteamLibrary\steamapps\common\SCUM'
 scumExecutable: 'D:\SteamLibrary\steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe'
-scumAesKey: '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+scumAesKey: ''
 scumStartParams: '-windowed -ResX=1920 -ResY=1080'
 ```
 
@@ -136,15 +106,20 @@ scumStartParams: '-windowed -ResX=1920 -ResY=1080'
 ```powershell
 skit unpack ".\MyMod.pak"
 skit unpack ".\MyMod.pak" ".\unpacked"
+skit unpack -omit-key ".\MyMod.pak"
 
 skit pack ".\MyMod" ".\MyMod.pak"
+skit pack ".\MyMod" ".\MyMod.pak" -omit-key
 
 skit tojson ".\Asset.uasset"
 skit fromjson ".\Asset.full.json"
 ```
 
-`tojson` uses `VER_UE4_27` and creates `Asset.full.json`. A different engine
-version or mappings file can be specified:
+When `scumAesKey` is configured, `pack` and `unpack` pass it to repak
+automatically. Use `-o` or `-omit-key` anywhere in either command to run
+repak without the configured key.
+
+`tojson` uses `VER_UE4_27` and creates `Asset.full.json`. A different engine version or mappings file can be specified:
 
 ```powershell
 skit tojson ".\Asset.uasset" VER_UE4_27 ".\Mappings.usmap"
@@ -169,8 +144,7 @@ version: 0.1.0.0
 exclude: []
 ```
 
-`name` and `version` are required. `exclude` is optional and can be `[]` or
-an indented list:
+`name` and `version` are required. `exclude` is optional and can be `[]` or an indented list:
 
 ```yaml
 name: 'MyMod'
@@ -181,9 +155,7 @@ exclude:
   - '**/*.bak'
 ```
 
-Patterns are relative to the project root. `*` matches within one path
-segment, `?` matches one character, and `**` matches across directory
-boundaries.
+Patterns are relative to the project root. `*` matches within one path segment, `?` matches one character, and `**` matches across directory boundaries.
 
 The following paths are always excluded:
 
@@ -191,8 +163,7 @@ The following paths are always excluded:
 - `.git/**`
 - `build/**`
 
-YAML parsing is intentionally strict. Only `name`, `version`, and `exclude`
-are accepted. Tabs, unknown or duplicate keys, and inline lists other than
+YAML parsing is intentionally strict. Only `name`, `version`, and `exclude` are accepted. Tabs, unknown or duplicate keys, and inline lists other than
 `[]` are rejected.
 
 ## Project commands
@@ -233,8 +204,7 @@ PAK created:             MyMod-0.1.0.4.pak
 Version after release:   0.2.0.0
 ```
 
-Only use `-nobattleye` for modded gameplay where anti-cheat is not required.
-Restart the game normally before joining servers that use BattlEye.
+Only use `-nobattleye` for modded gameplay where anti-cheat is not required. Restart the game normally before joining servers that use BattlEye.
 
 ## Individual tools
 
@@ -244,8 +214,7 @@ skit setup tools repak
 skit setup tools uassetgui
 ```
 
-After installation, `FModel`, `repak`, and `UAssetGUI` can be started
-directly from a new terminal.
+After installation, `FModel`, `repak`, and `UAssetGUI` can be started directly from a new terminal.
 
 ## Development
 
@@ -261,6 +230,25 @@ Run tests with Pester 5:
 ```powershell
 .\tests\Run-Tests.ps1
 ```
+
+## License and third-party software
+
+SCUM Mod Toolkit is available under the [MIT License](LICENSE).
+
+FModel, repak, and UAssetGUI are not included in the SKit source repository
+or release archives. SKit downloads them separately from their upstream
+release pages when the user requests tool installation. Each tool remains
+subject to its own license and copyright terms; see
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+SKit distributions do not include SCUM game files, AES keys, extracted game
+assets, or other copyrighted game material. Do not add such material to
+issues, pull requests, source archives, or releases.
+
+SCUM Mod Toolkit is an independent community project. It is not affiliated
+with, endorsed by, sponsored by, or approved by Gamepires or Epic Games.
+SCUM, Unreal Engine, and other names and trademarks belong to their
+respective owners.
 
 ## FAQ and troubleshooting
 
@@ -303,16 +291,13 @@ Set-ExecutionPolicy -Scope Process Bypass -Force
 .\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
-You can also start a separate Windows PowerShell 5.1 process with a one-time
-policy:
+You can also start a separate Windows PowerShell 5.1 process with a one-time policy:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
-Do not change `LocalMachine` or `CurrentUser` to `Bypass` solely for SKit. A
-permanent solution for broad distribution is to sign releases with a trusted
-code-signing certificate. The script must be signed again after every change.
+Do not change `LocalMachine` or `CurrentUser` to `Bypass` solely for SKit. A permanent solution for broad distribution is to sign releases with a trusted code-signing certificate. The script must be signed again after every change.
 
 ### The `skit` command is not found
 
@@ -323,9 +308,7 @@ skit: The term 'skit' is not recognized as a name of a cmdlet, function,
 script file, or executable program.
 ```
 
-`skit setup self` adds `%LOCALAPPDATA%\Programs\SKit` to the user `PATH`, but an
-already open terminal normally does not load the updated setting
-automatically. The recommended solution is:
+`skit setup self` adds `%LOCALAPPDATA%\Programs\SKit` to the user `PATH`, but an already open terminal normally does not load the updated setting automatically. The recommended solution is:
 
 1. Close the current terminal.
 2. Open a new PowerShell terminal.
@@ -357,14 +340,10 @@ If the result is `False`, run the installation again:
 .\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
-The message that the command exists in the current directory describes a
-different issue. For security reasons, PowerShell does not search the current
-directory for commands automatically. Run the local launcher with an explicit
-relative path:
+The message that the command exists in the current directory describes a different issue. For security reasons, PowerShell does not search the current directory for commands automatically. Run the local launcher with an explicit relative path:
 
 ```powershell
 .\skit.cmd version
 ```
 
-This runs the local `skit.cmd`. The `skit version` command without `.\` uses
-the globally installed copy found through `PATH`.
+This runs the local `skit.cmd`. The `skit version` command without `.\` uses the globally installed copy found through `PATH`.

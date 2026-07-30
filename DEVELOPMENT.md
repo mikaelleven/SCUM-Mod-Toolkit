@@ -26,6 +26,8 @@ AGENTS.md                  Permanent Codex rules
 DEVELOPMENT.md             Technical architecture and contracts
 CODEX-HANDOFF.md           Reusable Codex handoff instructions
 CHANGELOG.md               Version history
+LICENSE                    MIT license for SKit
+THIRD-PARTY-NOTICES.md     External tool licenses and distribution notices
 tests/
   Run-Tests.ps1
   SCUM-Mod-Toolkit.Tests.ps1
@@ -100,17 +102,40 @@ The local hash is calculated with
 SKit uses the following external arguments:
 
 ```text
-repak unpack --output <destination> <source.pak>
-repak pack --version V11 <source-directory> <destination.pak>
+repak [--aes-key <configured-key>] unpack --output <destination> <source.pak>
+repak [--aes-key <configured-key>] pack --version V11 <source-directory> <destination.pak>
 
 UAssetGUI tojson <source.uasset> <destination.full.json> VER_UE4_27 [mappings]
 UAssetGUI fromjson <source.json> <destination.uasset> [mappings]
 ```
 
 `Invoke-ExternalTool` treats every exit code other than `0` as an error.
+The repak AES option is global and must appear before the subcommand. SKit
+adds it when `scumAesKey` is configured unless the SKit-only `-o` or
+`-omit-key` flag is present. repak can read encrypted PAK files but does not
+encrypt newly packed files.
 
 Do not change these arguments without checking the current upstream code or
 official documentation and updating the tests.
+
+## Licensing and distribution
+
+SKit source code is licensed under the MIT License. FModel, repak, and
+UAssetGUI are separate programs downloaded from their upstream release
+pages at the user's request. Their licenses do not replace the SKit license,
+and SKit does not redistribute their binaries.
+
+Every source or release archive must include `LICENSE` and
+`THIRD-PARTY-NOTICES.md`. It must not include:
+
+- FModel, repak, UAssetGUI, or other downloaded third-party binaries;
+- SCUM game files or extracted assets;
+- AES keys or configuration files containing keys;
+- generated `.pak` files or local build output.
+
+If third-party binaries are ever bundled, review and satisfy every upstream
+license before publishing. FModel is GPL-licensed and requires particular
+attention to corresponding-source, license, and notice obligations.
 
 ## Project file
 
@@ -168,36 +193,14 @@ installation, reads both older and newer
 installation root and executable path are written to
 `SCUM-Mod-Toolkit.yaml`.
 
-`setup find-key` downloads the documented Games Translator page, removes
-HTML markup, and matches the `SCUM` entry followed by exactly `0x` and 64
-hexadecimal characters. The key is stored by itself in
-`SCUM-AES-Key.txt` in the current directory. A network failure or a missing
-or invalid key is a hard error.
-
-`setup get-key` performs the same download and stores the key as
-`scumAesKey` in `SCUM-Mod-Toolkit.yaml`. It then attempts to update the main
-AES key in `%APPDATA%\FModel\AppSettings.json` when:
-
-- FModel is not running;
-- the FModel settings file exists;
-- the settings file contains an existing per-directory entry matching the
-  configured SCUM path.
-
-The first update creates `AppSettings.json.skit-backup`. The JSON is written
-to a temporary file, parsed for validation, and then moved over the settings
-file. A skipped FModel update is informational and does not undo the YAML
-configuration.
-
 `setup open-config` creates `SCUM-Mod-Toolkit.yaml` through the normal
 configuration merge when it is missing. It first asks Windows to open the
 file through its YAML association and falls back to `notepad.exe` if that
 fails.
 
 `setup help` is dispatched separately from the main help and lists only
-setup commands. The setup dispatcher owns `self`, `tools`, `set-path`,
-`detect-path`, `find-key`, `get-key`, `open-config`, `set-startparams`, and
-`help`. The former top-level `tools`, `self-install`, and `config` forms are
-not accepted.
+setup commands. The former top-level `tools`, `self-install`, and `config`
+forms are not accepted.
 
 `setup set-startparams <parameter-string>` stores the complete string as
 `scumStartParams`. An explicitly empty string clears it. Both `play` modes
@@ -304,12 +307,11 @@ The test suite covers:
 - glob conversion and built-in protections;
 - SHA-256 metadata;
 - release asset selection;
-- repak and UAssetGUI arguments;
+- repak AES, omit-key, PAK version, and UAssetGUI arguments;
 - staging with excluded files;
 - Steam library detection and stored SCUM configuration;
 - setup command dispatch and YAML editor fallback;
-- content-based AES key matching, text-file output, YAML storage, and guarded
-  FModel settings updates;
+- AES key validation and YAML storage;
 - default and custom arguments for modded and default launch modes.
 
 A release must also be smoke-tested on Windows:
@@ -329,9 +331,8 @@ files:
 2. Export a UE 4.27 `.uasset` to JSON.
 3. Import the JSON and open the result.
 4. Run `init`, `build`, `install`, `test`, `setup detect-path`,
-   `setup find-key`, `setup get-key`, `setup open-config`,
-   `setup set-startparams`, and both `play` modes against a test
-   installation.
+   `setup open-config`, `setup set-startparams`, and both `play` modes
+   against a test installation.
 
 ## Known limitations
 
@@ -353,4 +354,7 @@ files:
 5. Increment `$script:SKitVersion` according to SemVer for the tool itself.
 6. Confirm that `skit version` displays the same version.
 7. Create a ZIP with root directory `SCUM-Mod-Toolkit-<version>`.
-8. Document what was verified and what still requires real-world testing.
+8. Inspect the ZIP and confirm that it includes `LICENSE` and
+   `THIRD-PARTY-NOTICES.md` but no third-party binaries, game files, AES
+   keys, configuration files, or generated mod content.
+9. Document what was verified and what still requires real-world testing.

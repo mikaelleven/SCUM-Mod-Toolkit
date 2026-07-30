@@ -1,0 +1,17 @@
+# Runtime configuration and secrets
+SCUM-Mod-Toolkit.yaml
+SKit.yaml
+skit.config.yml
+SCUM-AES-Key.txt
+
+# Downloaded third-party tools and binaries
+tools/
+*.exe
+*.dll
+
+# Game and generated mod content
+build/
+*.pak
+*.uasset
+*.uexp
+*.umap
