@@ -25,7 +25,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.5'
+$script:SKitVersion = '1.1.0.6'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -464,7 +464,7 @@ function Get-RepakAesArguments {
     if ([string]::IsNullOrWhiteSpace($config.ScumAesKey)) {
         return @()
     }
-    return @('--aes-key', $config.ScumAesKey)
+    return @('--aes-key', (ConvertTo-NormalizedScumAesKey -Key $config.ScumAesKey))
 }
 
 function Split-SKitFileArguments {
@@ -971,6 +971,19 @@ function Invoke-ProjectBuild {
     }
 }
 
+function ConvertTo-NormalizedScumAesKey {
+    param([AllowEmptyString()][string]$Key)
+
+    if ([string]::IsNullOrWhiteSpace($Key)) {
+        return ''
+    }
+    if ($Key -notmatch '^0x[0-9A-Fa-f]{64}$') {
+        throw 'scumAesKey must be empty or a valid 256-bit AES key.'
+    }
+
+    return '0x' + $Key.Substring(2).ToUpperInvariant()
+}
+
 function Read-SKitConfigFile {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -998,10 +1011,13 @@ function Read-SKitConfigFile {
             throw "$Path line ${lineNumber}: duplicate configuration key '$key'."
         }
         $value = ConvertFrom-StrictYamlScalar -Value $rawValue
-        if ($key -eq 'scumAesKey' -and
-            -not [string]::IsNullOrWhiteSpace($value) -and
-            $value -notmatch '^0x[0-9A-Fa-f]{64}$') {
-            throw "$Path line ${lineNumber}: scumAesKey must be empty or a valid 256-bit AES key."
+        if ($key -eq 'scumAesKey') {
+            try {
+                $value = ConvertTo-NormalizedScumAesKey -Key $value
+            }
+            catch {
+                throw "$Path line ${lineNumber}: scumAesKey must be empty or a valid 256-bit AES key."
+            }
         }
         $values[$key] = $value
     }
@@ -1067,15 +1083,12 @@ function Write-SKitConfig {
         [AllowEmptyString()][string]$ScumStartParams = ''
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($ScumAesKey) -and
-        $ScumAesKey -notmatch '^0x[0-9A-Fa-f]{64}$') {
-        throw 'scumAesKey must be empty or a valid 256-bit AES key.'
-    }
+    $normalizedScumAesKey = ConvertTo-NormalizedScumAesKey -Key $ScumAesKey
     $content = @(
         '# SCUM settings used by SKit.',
         ('scumPath: ' + (ConvertTo-StrictYamlScalar -Value $ScumPath)),
         ('scumExecutable: ' + (ConvertTo-StrictYamlScalar -Value $ScumExecutable)),
-        ('scumAesKey: ' + (ConvertTo-StrictYamlScalar -Value $ScumAesKey.ToUpperInvariant())),
+        ('scumAesKey: ' + (ConvertTo-StrictYamlScalar -Value $normalizedScumAesKey)),
         ('scumStartParams: ' + (ConvertTo-StrictYamlScalar -Value $ScumStartParams))
     ) -join "`r`n"
     Write-Utf8File -Path $script:GlobalConfigPath -Content ($content + "`r`n")
@@ -1181,14 +1194,17 @@ function Set-SKitStartParameters {
 function Set-SKitScumAesKey {
     param([Parameter(Mandatory)][string]$Key)
 
-    if ($Key -notmatch '^0x[0-9A-Fa-f]{64}$') {
+    try {
+        $normalizedKey = ConvertTo-NormalizedScumAesKey -Key $Key
+    }
+    catch {
         throw 'The SCUM AES key must contain 0x followed by 64 hexadecimal characters.'
     }
     $config = Merge-SKitConfig
     Write-SKitConfig `
         -ScumPath $config.ScumPath `
         -ScumExecutable $config.ScumExecutable `
-        -ScumAesKey $Key `
+        -ScumAesKey $normalizedKey `
         -ScumStartParams $config.ScumStartParams
     Write-Success "SCUM AES key stored in $script:GlobalConfigPath"
 }
@@ -1405,7 +1421,7 @@ function Get-ScumAesKeyFromContent {
     if (-not $match.Success) {
         throw 'Could not find a valid 256-bit AES key for SCUM in the downloaded page.'
     }
-    return $match.Groups[1].Value.ToUpperInvariant()
+    return ConvertTo-NormalizedScumAesKey -Key $match.Groups[1].Value
 }
 
 function Get-ScumAesKeyFromWeb {

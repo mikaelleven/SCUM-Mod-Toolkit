@@ -2,7 +2,12 @@
 
 All notable SKit changes are documented in this file.
 
-## Unreleased
+## 1.1.0.6 - 2026-07-30
+
+### Fixed
+
+- Normalized configured SCUM AES keys to a lowercase `0x` prefix before
+  passing them to repak, including keys previously stored with `0X`.
 
 ### Changed
 

@@ -63,7 +63,9 @@ The setting is stored in:
 
 SCUM's original game archives require a SCUM-specific 256-bit AES key. You
 must locate that key yourself and enter it as `scumAesKey` in the global
-configuration. SKit does not provide or document where to obtain it.
+configuration. SKit expects `0x` followed by 64 hexadecimal characters and
+normalizes the value before passing it to repak. SKit does not provide or
+document where to obtain it.
 
 Open the global YAML configuration in the default associated editor:
 

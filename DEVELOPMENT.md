@@ -183,7 +183,9 @@ scumStartParams: '-windowed'
 `scumExecutable` is optional for older or manually created configurations.
 When it is missing, the path is derived from `scumPath`.
 `scumAesKey` must be empty or contain `0x` followed by exactly 64 hexadecimal
-characters. `scumStartParams` is an optional string passed to SCUM at launch.
+characters. SKit normalizes the prefix to lowercase `0x` and the hexadecimal
+characters to uppercase because repak requires the lowercase prefix.
+`scumStartParams` is an optional string passed to SCUM at launch.
 
 `setup detect-path` locates Steam through the registry or default
 installation, reads both older and newer

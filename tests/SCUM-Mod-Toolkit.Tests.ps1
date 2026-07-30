@@ -491,8 +491,21 @@ Describe 'Global SKit configuration' {
         Write-SKitConfig -ScumAesKey $expectedKey
 
         @(Get-RepakAesArguments) -join '|' |
-            Should -Be "--aes-key|$expectedKey"
+            Should -BeExactly "--aes-key|$expectedKey"
         @(Get-RepakAesArguments -OmitKey).Count | Should -Be 0
+    }
+
+    It 'normalizes an uppercase AES prefix before passing the key to repak' {
+        $storedKey = '0X0b1f4e543fb798efc5bd861bb405be7081cd03698ea9ba06469462a3b113ca81'
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        [System.IO.File]::WriteAllText(
+            $script:GlobalConfigPath,
+            "scumAesKey: '$storedKey'`r`n"
+        )
+
+        (Read-SKitConfig).ScumAesKey | Should -BeExactly $expectedKey
+        @(Get-RepakAesArguments) -join '|' |
+            Should -BeExactly "--aes-key|$expectedKey"
     }
 
     It 'stores the detected executable and installation root in SCUM-Mod-Toolkit.yaml' {
@@ -686,7 +699,7 @@ Describe 'SCUM AES key discovery' {
 <p><strong>SCUM</strong>&nbsp;&nbsp; $expectedKey</p>
 "@
 
-        Get-ScumAesKeyFromContent -Content $content | Should -Be $expectedKey
+        Get-ScumAesKeyFromContent -Content $content | Should -BeExactly $expectedKey
     }
 
     It 'downloads and saves only the SCUM AES key' {
