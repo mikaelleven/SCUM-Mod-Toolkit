@@ -1,37 +1,37 @@
-# Utveckling av SCUM Mod Toolkit
+# Developing SCUM Mod Toolkit
 
-Detta dokument är den tekniska överlämningen för SKit. `README.md` beskriver
-användningen och `AGENTS.md` innehåller permanenta regler för Codex.
+This document is the technical handoff for SKit. `README.md` describes usage,
+and `AGENTS.md` contains permanent Codex rules.
 
-## Mål och avgränsning
+## Goals and scope
 
-SKit ska vara ett litet, beroendefritt PowerShell-verktyg för Windows 11 och
-Windows PowerShell 5.1. Det ska:
+SKit must remain a small, dependency-free PowerShell tool for Windows 11 and
+Windows PowerShell 5.1. It must:
 
-- installera sig självt och registrera kommandot `skit`;
-- installera verifierade releaser av FModel, repak och UAssetGUI;
-- ge enkla wrappers för PAK- och UAsset-kommandon;
-- ge ett förutsägbart projektflöde med strikt, människoläsbar YAML.
+- install itself and register the `skit` command;
+- install verified releases of FModel, repak, and UAssetGUI;
+- provide simple wrappers for PAK and UAsset commands;
+- provide a predictable project workflow with strict, human-readable YAML.
 
-SKit är inte en generell pakethanterare, YAML-implementation eller
-versionshanterare.
+SKit is not a general package manager, YAML implementation, or version
+manager.
 
-## Filstruktur
+## File structure
 
 ```text
-SCUM-Mod-Toolkit.ps1       Hela runtime-implementationen
-skit.cmd                   Lokal startbrygga till PowerShell-scriptet
-README.md                  Användarguide
-AGENTS.md                  Permanenta Codex-regler
-DEVELOPMENT.md             Teknisk arkitektur och kontrakt
-CODEX-HANDOFF.md           Återanvändbar startinstruktion till Codex
-CHANGELOG.md               Versionshistorik
+SCUM-Mod-Toolkit.ps1       Complete runtime implementation
+skit.cmd                   Local launcher for the PowerShell script
+README.md                  User guide
+AGENTS.md                  Permanent Codex rules
+DEVELOPMENT.md             Technical architecture and contracts
+CODEX-HANDOFF.md           Reusable Codex handoff instructions
+CHANGELOG.md               Version history
 tests/
   Run-Tests.ps1
   SCUM-Mod-Toolkit.Tests.ps1
 ```
 
-Den installerade strukturen är:
+The installed structure is:
 
 ```text
 %LOCALAPPDATA%\Programs\SKit\
@@ -48,50 +48,51 @@ Den installerade strukturen är:
     uassetgui\
 ```
 
-## Körflöde
+## Execution flow
 
-Scriptet kan användas på två sätt:
+The script can be used in two ways:
 
-1. Normal exekvering: parametrar läses och `Invoke-SKitCommand` dispatchar
-   kommandot.
-2. Dot-sourcing: funktionerna laddas för Pester utan att installation,
-   PATH-ändring eller kommandodispatch körs.
+1. Normal execution: parameters are read and `Invoke-SKitCommand` dispatches
+   the command.
+2. Dot-sourcing: functions are loaded for Pester without performing
+   installation, changing `PATH`, or dispatching a command.
 
-Vid normal exekvering körs `Ensure-SelfInstalled` före kommandot:
+During normal execution, `Ensure-SelfInstalled` runs before the command:
 
-- Om `skit.ps1` eller `skit.cmd` saknas installeras SKit automatiskt.
-- Om båda finns lämnas den installerade kopian orörd.
-- `self-install` kör `Install-Self` explicit och uppdaterar kopian.
+- If `skit.ps1` or `skit.cmd` is missing, SKit installs itself automatically.
+- If both files exist, the installed copy is left unchanged.
+- `self-install` explicitly runs `Install-Self` and updates the installed
+  copy.
 
-Alla fel på CLI-nivå fångas, skrivs som `[SKit] ERROR: <message>` och ger
-exitkod `1`.
+All CLI-level errors are caught, written as `[SKit] ERROR: <message>`, and
+return exit code `1`.
 
-## Externa verktyg
+## External tools
 
-| Verktyg | Repository | Exekverbar fil |
+| Tool | Repository | Executable |
 | --- | --- | --- |
 | FModel | `4sval/FModel` | `FModel.exe` |
 | repak | `trumank/repak` | `repak.exe` |
 | UAssetGUI | `atenfyr/UAssetGUI` | `UAssetGUI.exe` |
 
-Installation använder `releases/latest` via den versionssatta GitHub API:n
-`2026-03-10`. `Select-ReleaseAsset` poängsätter Windows-tillgångar och
-ignorerar checksummor, signaturer, symbolpaket och källkodspaket.
+Installation uses `releases/latest` through the versioned GitHub API
+`2026-03-10`. `Select-ReleaseAsset` scores Windows assets and ignores
+checksums, signatures, symbol packages, and source packages.
 
-Säkerhetskontraktet är:
+The security contract is:
 
-1. Den valda tillgången måste ha metadatafältet `digest`.
-2. Värdet måste matcha `sha256:<64 hextecken>`.
-3. Nedladdad storlek kontrolleras när GitHub anger en storlek.
-4. Lokal SHA-256 måste matcha metadata.
-5. Först därefter packas filen upp och byter plats med tidigare verktyg.
+1. The selected asset must have a `digest` metadata field.
+2. The value must match `sha256:<64 hexadecimal characters>`.
+3. The downloaded size is checked when GitHub provides a size.
+4. The local SHA-256 must match the metadata.
+5. Only then is the file extracted and swapped with the previous tool.
 
-Det finns avsiktligt ingen fallback till en checksumma hämtad från brödtext,
-HTML eller en separat, overifierad fil.
+There is intentionally no fallback to a checksum obtained from release body
+text, HTML, or a separate unverified file.
 
-### Kommandokontrakt
+### Command contracts
 
-SKit använder följande externa argument:
+SKit uses the following external arguments:
 
 ```text
 repak unpack --output <destination> <source.pak>
@@ -101,73 +102,74 @@ UAssetGUI tojson <source.uasset> <destination.full.json> VER_UE4_27 [mappings]
 UAssetGUI fromjson <source.json> <destination.uasset> [mappings]
 ```
 
-`Invoke-ExternalTool` betraktar alla exitkoder utom `0` som fel.
+`Invoke-ExternalTool` treats every exit code other than `0` as an error.
 
-Ändra inte dessa argument utan att kontrollera aktuell upstream-kod eller
-officiell dokumentation och uppdatera testerna.
+Do not change these arguments without checking the current upstream code or
+official documentation and updating the tests.
 
-## Projektfilen
+## Project file
 
-Filnamnet är alltid `skit.yml`. SKit letar i aktuell katalog och därefter
-uppåt genom föräldrakatalogerna.
+The filename is always `skit.yml`. SKit searches the current directory and
+then each parent directory.
 
-Tillåtna toppnivånycklar:
+Allowed top-level keys:
 
-| Nyckel | Krav | Typ |
+| Key | Requirement | Type |
 | --- | --- | --- |
-| `name` | Obligatorisk | Sträng och giltigt Windows-filnamn |
-| `version` | Obligatorisk | `major.minor.patch.build` |
-| `exclude` | Valfri | `[]` eller indenterad lista med strängar |
+| `name` | Required | String and valid Windows filename |
+| `version` | Required | `major.minor.patch.build` |
+| `exclude` | Optional | `[]` or an indented string list |
 
-Parsern stöder kommentarer på egna rader, tomma rader, enkla citattecken,
-dubbla citattecken och begränsade vanliga skalärer. Den avvisar:
+The parser supports comments on separate lines, blank lines, single quotes,
+double quotes, and restricted plain scalars. It rejects:
 
-- tabbar;
-- okända och dubblerade nycklar;
-- felaktig indentering;
-- listposter utanför `exclude`;
-- inline-listor andra än `[]`;
-- reserverade YAML-tecken i ociterade skalärer.
+- tabs;
+- unknown and duplicate keys;
+- invalid indentation;
+- list items outside `exclude`;
+- inline lists other than `[]`;
+- reserved YAML characters in unquoted scalars.
 
-Bakåtkompatibilitet för detta format ska bevaras. Om en ny nyckel läggs till
-ska parser, serializer, dokumentation och tester uppdateras tillsammans.
+Backward compatibility for this format must be preserved. When adding a new
+key, update the parser, serializer, documentation, and tests together.
 
-Global konfiguration skrivs till `SKit.yaml`. En befintlig
-`skit.config.yml` läses som bakåtkompatibel reserv om den nya filen saknas.
-Tillåtna nycklar är:
+Global configuration is written to `SKit.yaml`. An existing
+`skit.config.yml` is read as a backward-compatible fallback when the new file
+does not exist. Allowed keys:
 
 ```yaml
 scumPath: 'C:\path\to\SCUM'
 scumExecutable: 'C:\path\to\SCUM\SCUM\Binaries\Win64\SCUM.exe'
 ```
 
-`scumExecutable` är valfri för äldre eller manuellt skapade konfigurationer.
-När den saknas härleds den från `scumPath`.
+`scumExecutable` is optional for older or manually created configurations.
+When it is missing, the path is derived from `scumPath`.
 
-`config detect-scum` hittar Steam via registret eller standardinstallationen,
-läser både äldre och nyare format av `steamapps\libraryfolders.vdf` och söker
-efter `steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe` i varje bibliotek.
-Den upptäckta installationsroten och EXE-sökvägen skrivs till `SKit.yaml`.
+`config detect-scum` locates Steam through the registry or default
+installation, reads both older and newer
+`steamapps\libraryfolders.vdf` formats, and searches each library for
+`steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe`. The detected
+installation root and executable path are written to `SKit.yaml`.
 
-`config find-key` hämtar den dokumenterade Games Translator-sidan, tar bort
-HTML-markup och matchar posten `SCUM` följd av exakt `0x` och 64 hextecken.
-Nyckeln sparas ensam i `SCUM-AES-Key.txt`. Ett nätverksfel eller en saknad
-eller ogiltig nyckel är ett hårt fel.
+`config find-key` downloads the documented Games Translator page, removes
+HTML markup, and matches the `SCUM` entry followed by exactly `0x` and 64
+hexadecimal characters. The key is stored by itself in `SCUM-AES-Key.txt`.
+A network failure or a missing or invalid key is a hard error.
 
-## Exkluderingsmönster
+## Exclusion patterns
 
-Alla sökvägar normaliseras till `/` och jämförs relativt projektroten.
+All paths are normalized to `/` and compared relative to the project root.
 
-| Mönster | Betydelse |
+| Pattern | Meaning |
 | --- | --- |
-| `*` | Noll eller flera tecken inom en sökvägsdel |
-| `?` | Exakt ett tecken inom en sökvägsdel |
-| `**` | Noll eller flera tecken, inklusive `/` |
-| `**/` | Noll eller flera katalogsegment |
-| avslutande `/` | Behandlas som `/**` |
+| `*` | Zero or more characters within one path segment |
+| `?` | Exactly one character within one path segment |
+| `**` | Zero or more characters, including `/` |
+| `**/` | Zero or more directory segments |
+| trailing `/` | Treated as `/**` |
 
-Matchningen är skiftlägesokänslig i normal PowerShell-matchning på Windows.
-Följande mönster läggs alltid till före projektspecifika mönster:
+Matching is case-insensitive under normal PowerShell behavior on Windows.
+The following patterns are added before project-specific patterns:
 
 ```text
 skit.yml
@@ -175,15 +177,15 @@ skit.yml
 build/**
 ```
 
-## Versionsregler
+## Version rules
 
-Versionen består av fyra icke-negativa heltal:
+The version consists of four non-negative integers:
 
 ```text
 major.minor.patch.build
 ```
 
-| Kommando från `1.2.3.4` | Ny projektversion |
+| Command from `1.2.3.4` | New project version |
 | --- | --- |
 | `bump major` | `2.0.0.0` |
 | `bump minor` | `1.3.0.0` |
@@ -193,73 +195,74 @@ major.minor.patch.build
 
 `build`:
 
-1. Läser aktuell version.
-2. Beräknar nästa build-version.
-3. Kopierar icke-exkluderade filer till en temporär stagingkatalog.
-4. Kör repak mot en temporär PAK.
-5. Flyttar lyckad PAK till `build\<name>-<version>.pak`.
-6. Uppdaterar projektversionen och `build\latest.txt`.
+1. Reads the current version.
+2. Calculates the next build version.
+3. Copies non-excluded files to a temporary staging directory.
+4. Runs repak against a temporary PAK.
+5. Moves the successful PAK to `build\<name>-<version>.pak`.
+6. Updates the project version and `build\latest.txt`.
 
-Projektversionen ändras alltså först när repak har lyckats och PAK-filen har
-flyttats till sin slutliga plats.
+The project version changes only after repak succeeds and the PAK file has
+been moved to its final path.
 
-`release` är avsiktligt build-först:
+`release` intentionally builds first:
 
 ```text
-Före:              1.2.3.4
-Skapad PAK:        1.2.3.5
-Efter release:     1.3.0.0
+Before:             1.2.3.4
+Created PAK:        1.2.3.5
+After release:      1.3.0.0
 ```
 
-`release major` ger i samma exempel projektversion `2.0.0.0`. Endast `minor`
-och `major` är giltiga release-argument.
+In the same example, `release major` changes the project version to
+`2.0.0.0`. Only `minor` and `major` are valid release arguments.
 
-`test` kör `build` och sedan `install`. Om installationen misslyckas efter
-ett lyckat bygge behålls det nya bygget och den ökade build-versionen.
+`test` runs `build` and then `install`. If installation fails after a
+successful build, the new build and incremented build version are retained.
 
-## Installation av ett projektbygge
+## Installing a project build
 
-`Get-LatestProjectBuild` använder först `build\latest.txt`. Om den pekar på
-en saknad fil används den senast modifierade `.pak`-filen i buildkatalogen.
+`Get-LatestProjectBuild` first uses `build\latest.txt`. If it points to a
+missing file, the most recently modified `.pak` file in the build directory
+is used.
 
 `install`:
 
-- hittar SCUMs `Content\Paks`;
-- skapar `~mods` vid behov;
-- tar bort det tidigare SKit-installerade bygget för samma projekt när
-  filnamnet har ändrats;
-- kopierar senaste bygge;
-- sparar filnamnet i `build\installed.txt`.
+- locates the SCUM `Content\Paks` directory;
+- creates `~mods` when necessary;
+- removes the previous SKit-installed build for the same project when the
+  filename has changed;
+- copies the latest build;
+- stores the filename in `build\installed.txt`.
 
-Raderingen begränsas till ett validerat `.pak`-filnamn i den konfigurerade
-`~mods`-katalogen.
+Deletion is restricted to a validated `.pak` filename inside the configured
+`~mods` directory.
 
-## Teststrategi
+## Test strategy
 
-Testerna använder Pester 5 och ska köras i Windows PowerShell 5.1:
+The tests use Pester 5 and must run in Windows PowerShell 5.1:
 
 ```powershell
 Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser
 .\tests\Run-Tests.ps1
 ```
 
-Testsviten täcker:
+The test suite covers:
 
-- PowerShell-parserfel;
-- versionsparsning och samtliga bump-regler;
-- releaseordning;
-- strikt YAML, obligatoriska nycklar och ogiltiga konstruktioner;
-- uppdatering av version utan att skriva om övrig projektfil;
-- glob-konvertering och standardskydd;
-- SHA-256-metadata;
-- val av release-tillgång;
-- argument till repak och UAssetGUI;
-- staging med exkluderade filer;
-- Steam-biblioteksdetektering och sparad SCUM-konfiguration;
-- innehållsbaserad AES-nyckelmatchning och lagring;
-- argumenten för moddat respektive vanligt spelläge.
+- PowerShell parser errors;
+- version parsing and all bump rules;
+- release order;
+- strict YAML, required keys, and invalid constructs;
+- updating the version without rewriting the rest of the project file;
+- glob conversion and built-in protections;
+- SHA-256 metadata;
+- release asset selection;
+- repak and UAssetGUI arguments;
+- staging with excluded files;
+- Steam library detection and stored SCUM configuration;
+- content-based AES key matching and storage;
+- arguments for modded and default launch modes.
 
-En release ska dessutom smoke-testas på Windows:
+A release must also be smoke-tested on Windows:
 
 ```powershell
 .\SCUM-Mod-Toolkit.ps1 version
@@ -269,32 +272,33 @@ skit tools repak
 skit tools uassetgui
 ```
 
-Före en skarp release bör även följande göras med riktiga testfiler:
+Before a production release, also perform the following with real test
+files:
 
-1. Packa och packa upp en liten PAK.
-2. Exportera en UE 4.27 `.uasset` till JSON.
-3. Importera JSON tillbaka och öppna resultatet.
-4. Köra `init`, `build`, `install`, `test`, `config detect-scum`,
-   `config find-key` och båda `play`-lägena mot en testinstallation.
+1. Pack and unpack a small PAK.
+2. Export a UE 4.27 `.uasset` to JSON.
+3. Import the JSON and open the result.
+4. Run `init`, `build`, `install`, `test`, `config detect-scum`,
+   `config find-key`, and both `play` modes against a test installation.
 
-## Kända begränsningar
+## Known limitations
 
-- Endast Windows stöds.
-- Verktygsval bygger på releasefilernas namn och kan behöva uppdateras om
-  upstream byter namnkonvention.
-- Installation stoppas om GitHub-releasen saknar `digest`.
-- SKit installerar inte .NET Desktop Runtime.
-- Det finns inget uninstall-kommando.
-- Automatiska tester mockar externa program och ersätter inte ett riktigt
-  SCUM-test.
+- Only Windows is supported.
+- Tool selection relies on release asset naming and may need updates when
+  upstream naming conventions change.
+- Installation stops when a GitHub release does not provide a `digest`.
+- SKit does not install .NET Desktop Runtime.
+- There is no uninstall command.
+- Automated tests mock external programs and do not replace a real SCUM
+  test.
 
-## Checklista för en SKit-release
+## SKit release checklist
 
-1. Implementera ändringen och testerna.
-2. Kör Pester i Windows PowerShell 5.1.
-3. Kör relevanta smoke- och end-to-end-tester.
-4. Uppdatera `README.md`, `DEVELOPMENT.md` och `CHANGELOG.md`.
-5. Öka `$script:SKitVersion` enligt SemVer för själva verktyget.
-6. Kontrollera att `skit version` visar samma version.
-7. Skapa ZIP med rotkatalogen `SCUM-Mod-Toolkit-<version>`.
-8. Dokumentera verifierade och ej verifierade delar i leveransen.
+1. Implement the change and tests.
+2. Run Pester in Windows PowerShell 5.1.
+3. Run relevant smoke and end-to-end tests.
+4. Update `README.md`, `DEVELOPMENT.md`, and `CHANGELOG.md`.
+5. Increment `$script:SKitVersion` according to SemVer for the tool itself.
+6. Confirm that `skit version` displays the same version.
+7. Create a ZIP with root directory `SCUM-Mod-Toolkit-<version>`.
+8. Document what was verified and what still requires real-world testing.

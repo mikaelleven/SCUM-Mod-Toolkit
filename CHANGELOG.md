@@ -1,6 +1,13 @@
 # Changelog
 
-Alla betydande ändringar av SKit dokumenteras här.
+All notable SKit changes are documented in this file.
+
+## Unreleased
+
+### Changed
+
+- Standardized the README, development guide, Codex handoff, and repository
+  instructions in English.
 
 ## 1.1.0.1 - 2026-07-30
 

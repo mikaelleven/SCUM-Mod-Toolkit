@@ -24,8 +24,7 @@ security checks, and external-tool arguments as compatibility contracts.
 
 - Write code, function names, comments, test names, log messages, and error
   messages in English.
-- Keep user documentation in Swedish unless the user requests another
-  language.
+- Keep all documentation in English.
 - Prefer small, focused functions and PowerShell/.NET built-ins.
 - Keep the strict YAML parser dependency-free. Do not add a general YAML
   module unless explicitly requested.
@@ -77,6 +76,7 @@ or SCUM was mocked or unavailable.
 
 ## Git commits
 
-Whenever the user writes `gör commit`, increment the final component of
-`$script:SKitVersion` before creating the Git commit. Update `CHANGELOG.md`,
-run the required checks, and include all intended changes in the commit.
+Whenever the user asks for a Git commit, increment the final component of
+`$script:SKitVersion` before creating it unless the user explicitly requests
+otherwise. Update `CHANGELOG.md`, run the required checks, and include all
+intended changes in the commit.

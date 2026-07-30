@@ -1,82 +1,83 @@
 # SCUM Mod Toolkit (SKit)
 
-SKit är ett PowerShell-verktyg för Windows som installerar och samlar FModel,
-repak och UAssetGUI bakom kommandot `skit`. Det innehåller även ett enkelt
-projektflöde för att bygga, installera och testa SCUM-moddar.
+SKit is a PowerShell tool for Windows that installs and provides FModel,
+repak, and UAssetGUI through the `skit` command. It also includes a simple
+project workflow for building, installing, and testing SCUM mods.
 
-## Krav
+## Requirements
 
 - Windows 11
-- Windows PowerShell 5.1 eller senare
-- Internetanslutning när verktyg installeras
-- Aktuella .NET Desktop Runtime-versioner som krävs av FModel och UAssetGUI
+- Windows PowerShell 5.1 or later
+- An internet connection when installing tools
+- The current .NET Desktop Runtime versions required by FModel and UAssetGUI
 
-SKit hämtar externa verktyg men installerar inte deras runtime-beroenden.
+SKit downloads external tools but does not install their runtime dependencies.
 
 ## Installation
 
-Packa upp filerna och kör:
+Extract the files and run:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
 .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
-Använd endast `Unblock-File` efter att du har granskat och litar på scriptet.
-Öppna en ny terminal och installera verktygen:
+Only use `Unblock-File` after reviewing and trusting the script. Open a new
+terminal and install the tools:
 
 ```powershell
 skit tools
 ```
 
-Om PowerShell blockerar scriptet eller inte hittar kommandot `skit`, se
-[FAQ och felsökning](#faq-och-felsökning).
+If PowerShell blocks the script or cannot find the `skit` command, see
+[FAQ and troubleshooting](#faq-and-troubleshooting).
 
-SKit installeras i:
+SKit is installed in:
 
 ```text
 %LOCALAPPDATA%\Programs\SKit
 ```
 
-Katalogen läggs i användarens `PATH`. Om SKit inte redan är installerat gör
-även en direkt körning av `SCUM-Mod-Toolkit.ps1` en första självinstallation.
-`self-install` kan köras igen för att uppdatera den installerade kopian.
+The directory is added to the user `PATH`. If SKit is not already installed,
+running `SCUM-Mod-Toolkit.ps1` directly also performs an initial
+self-installation. Run `self-install` again to update the installed copy.
 
-Varje nedladdad releasefil verifieras mot SHA-256-värdet i GitHubs
-release-metadata. Installationen avbryts om ett giltigt SHA-256-värde saknas
-eller inte stämmer.
+Every downloaded release asset is verified against the SHA-256 value in the
+GitHub release metadata. Installation stops if a valid SHA-256 value is
+missing or does not match.
 
-Låt SKit hitta SCUM automatiskt i Steams bibliotek:
+Let SKit detect SCUM automatically in the configured Steam libraries:
 
 ```powershell
 skit config detect-scum
 ```
 
-Det går även att konfigurera installationskatalogen manuellt:
+The installation directory can also be configured manually:
 
 ```powershell
 skit config "D:\SteamLibrary\steamapps\common\SCUM"
 ```
 
-Inställningen sparas i:
+The setting is stored in:
 
 ```text
 %LOCALAPPDATA%\Programs\SKit\SKit.yaml
 ```
 
-Äldre `skit.config.yml` läses fortfarande om `SKit.yaml` saknas.
+The legacy `skit.config.yml` file is still read when `SKit.yaml` does not
+exist.
 
-Hämta den aktuella AES-nyckeln för SCUM:
+Download the current AES key for SCUM:
 
 ```powershell
 skit config find-key
 ```
 
-SKit letar efter posten med namnet `SCUM` på källsidan, oberoende av dess
-radnummer, validerar att värdet är en 256-bitars hexadecimal nyckel och sparar
-det i `%LOCALAPPDATA%\Programs\SKit\SCUM-AES-Key.txt`.
+SKit locates the entry named `SCUM` on the source page regardless of its line
+number, validates that the value is a 256-bit hexadecimal key, and stores it
+in `%LOCALAPPDATA%\Programs\SKit\SCUM-AES-Key.txt`.
 
-## Filkommandon
+## File commands
 
 ```powershell
 skit unpack ".\MyMod.pak"
@@ -88,25 +89,25 @@ skit tojson ".\Asset.uasset"
 skit fromjson ".\Asset.full.json"
 ```
 
-`tojson` använder `VER_UE4_27` och skapar `Asset.full.json`. En annan
-motorversion eller mappings-fil kan anges:
+`tojson` uses `VER_UE4_27` and creates `Asset.full.json`. A different engine
+version or mappings file can be specified:
 
 ```powershell
 skit tojson ".\Asset.uasset" VER_UE4_27 ".\Mappings.usmap"
 skit fromjson ".\Asset.full.json" ".\Asset.uasset" ".\Mappings.usmap"
 ```
 
-PAK-filer skapas med repaks PAK-version `V11`.
+PAK files are created with repak PAK version `V11`.
 
-## Projekt
+## Projects
 
-Skapa ett projekt i aktuell katalog:
+Create a project in the current directory:
 
 ```powershell
 skit init
 ```
 
-Det skapar `skit.yml`:
+This creates `skit.yml`:
 
 ```yaml
 name: 'MyMod'
@@ -114,8 +115,8 @@ version: 0.1.0.0
 exclude: []
 ```
 
-`name` och `version` är obligatoriska. `exclude` är valfri och kan vara `[]`
-eller en indenterad lista:
+`name` and `version` are required. `exclude` is optional and can be `[]` or
+an indented list:
 
 ```yaml
 name: 'MyMod'
@@ -126,20 +127,21 @@ exclude:
   - '**/*.bak'
 ```
 
-Mönstren är relativa projektroten. `*` matchar inom en sökvägsdel, `?`
-matchar ett tecken och `**` matchar över kataloggränser.
+Patterns are relative to the project root. `*` matches within one path
+segment, `?` matches one character, and `**` matches across directory
+boundaries.
 
-Följande exkluderas alltid:
+The following paths are always excluded:
 
 - `skit.yml`
 - `.git/**`
 - `build/**`
 
-YAML-tolkningen är avsiktligt strikt. Endast `name`, `version` och `exclude`
-accepteras. Tabbar, okända eller dubblerade nycklar och andra inline-listor än
-`[]` avvisas.
+YAML parsing is intentionally strict. Only `name`, `version`, and `exclude`
+are accepted. Tabs, unknown or duplicate keys, and inline lists other than
+`[]` are rejected.
 
-## Projektkommandon
+## Project commands
 
 ```powershell
 skit build
@@ -157,27 +159,29 @@ skit play modded
 skit play default
 ```
 
-- `build` ökar build-numret och skapar `build\<name>-<version>.pak`.
-- `bump` ökar minor som standard. `major`, `minor`, `patch` och `build` stöds.
-- `release` gör först en build och därefter en minor-bump. `major` kan anges.
-- `install` kopierar senaste bygget till `SCUM\Content\Paks\~mods`.
-- `test` kör build och därefter install.
-- `play` och `play modded` startar `SCUM.exe` med
+- `build` increments the build number and creates
+  `build\<name>-<version>.pak`.
+- `bump` increments the minor version by default. `major`, `minor`, `patch`,
+  and `build` are supported.
+- `release` performs a build and then a minor bump. `major` can be specified.
+- `install` copies the latest build to `SCUM\Content\Paks\~mods`.
+- `test` runs build and then install.
+- `play` and `play modded` start `SCUM.exe` with
   `-fileopenlog -nobattleye`.
-- `play default` startar `SCUM.exe` utan dessa parametrar.
+- `play default` starts `SCUM.exe` without those arguments.
 
-Exempel på det avsiktliga releaseflödet:
+Example of the intentional release flow:
 
 ```text
-Version före release:  0.1.0.3
-PAK som skapas:        MyMod-0.1.0.4.pak
-Version efter release: 0.2.0.0
+Version before release:  0.1.0.3
+PAK created:             MyMod-0.1.0.4.pak
+Version after release:   0.2.0.0
 ```
 
-`-nobattleye` ska endast användas för moddat spel där anti-cheat inte krävs.
-Starta om spelet normalt innan du ansluter till servrar som använder BattlEye.
+Only use `-nobattleye` for modded gameplay where anti-cheat is not required.
+Restart the game normally before joining servers that use BattlEye.
 
-## Enskilda verktyg
+## Individual tools
 
 ```powershell
 skit tools fmodel
@@ -185,99 +189,98 @@ skit tools repak
 skit tools uassetgui
 ```
 
-Efter installation kan `FModel`, `repak` och `UAssetGUI` startas direkt från
-en ny terminal.
+After installation, `FModel`, `repak`, and `UAssetGUI` can be started
+directly from a new terminal.
 
-## Vidareutveckling
+## Development
 
-Läs dokumenten i denna ordning:
+Read the documents in this order:
 
-1. `AGENTS.md` – permanenta regler för Codex.
-2. `DEVELOPMENT.md` – arkitektur, kontrakt och testmatris.
-3. `CODEX-HANDOFF.md` – färdig instruktion för en ny Codex-session.
-4. `CHANGELOG.md` – versionshistorik.
+1. `AGENTS.md` - permanent Codex rules.
+2. `DEVELOPMENT.md` - architecture, contracts, and test matrix.
+3. `CODEX-HANDOFF.md` - reusable instructions for a new Codex session.
+4. `CHANGELOG.md` - version history.
 
-Tester körs med Pester 5:
+Run tests with Pester 5:
 
 ```powershell
 .\tests\Run-Tests.ps1
 ```
 
-## FAQ och felsökning
+## FAQ and troubleshooting
 
-### Scriptet är inte digitalt signerat
+### The script is not digitally signed
 
-PowerShell kan visa följande fel:
+PowerShell may display the following error:
 
 ```text
 SCUM-Mod-Toolkit.ps1 cannot be loaded. The file is not digitally signed.
 You cannot run this script on the current system.
 ```
 
-Det händer vanligtvis när PowerShell använder `RemoteSigned` och Windows har
-markerat filen som nedladdad från internet. Kontrollera aktuell policy med:
+This commonly happens when PowerShell uses `RemoteSigned` and Windows has
+marked the file as downloaded from the internet. Check the current policy:
 
 ```powershell
 Get-ExecutionPolicy -List
 ```
 
-Efter att du har granskat och litar på scriptet är den rekommenderade
-lösningen att ta bort internetmarkeringen från just den filen:
+After reviewing and trusting the script, the recommended solution is to
+remove the internet mark from that specific file:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
 .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
-Om distributionen levereras som en ZIP-fil kan du i stället avblockera
-ZIP-filen innan den packas upp:
+If the distribution is delivered as a ZIP file, unblock the ZIP file before
+extracting it:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.zip
 ```
 
-Som tillfällig lösning kan policyn ändras endast för den aktuella
-PowerShell-processen:
+As a temporary workaround, change the policy for the current PowerShell
+process only:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
 .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
-Det går även att starta en separat Windows PowerShell 5.1-process med en
-engångspolicy:
+You can also start a separate Windows PowerShell 5.1 process with a one-time
+policy:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
-Ändra inte `LocalMachine` eller `CurrentUser` till `Bypass` enbart för SKit.
-En permanent lösning för bred distribution är att signera releases med ett
-betrott kodsigneringscertifikat. Scriptet måste signeras på nytt efter varje
-ändring.
+Do not change `LocalMachine` or `CurrentUser` to `Bypass` solely for SKit. A
+permanent solution for broad distribution is to sign releases with a trusted
+code-signing certificate. The script must be signed again after every change.
 
-### Kommandot `skit` hittas inte
+### The `skit` command is not found
 
-Efter installation kan PowerShell visa:
+After installation, PowerShell may display:
 
 ```text
 skit: The term 'skit' is not recognized as a name of a cmdlet, function,
 script file, or executable program.
 ```
 
-`self-install` lägger till `%LOCALAPPDATA%\Programs\SKit` i användarens
-`PATH`, men en terminal som redan är öppen läser normalt inte in den nya
-inställningen automatiskt. Rekommenderad lösning:
+`self-install` adds `%LOCALAPPDATA%\Programs\SKit` to the user `PATH`, but an
+already open terminal normally does not load the updated setting
+automatically. The recommended solution is:
 
-1. Stäng den aktuella terminalen.
-2. Öppna en ny PowerShell-terminal.
-3. Kontrollera installationen:
+1. Close the current terminal.
+2. Open a new PowerShell terminal.
+3. Verify the installation:
 
 ```powershell
 skit version
 ```
 
-För att uppdatera endast den aktuella terminalen utan omstart:
+To update only the current terminal without restarting it:
 
 ```powershell
 $skitRoot = Join-Path $env:LOCALAPPDATA 'Programs\SKit'
@@ -287,25 +290,26 @@ if (($env:Path -split ';') -notcontains $skitRoot) {
 skit version
 ```
 
-Kontrollera att installationen verkligen finns:
+Check that the installation exists:
 
 ```powershell
 Test-Path -LiteralPath "$env:LOCALAPPDATA\Programs\SKit\skit.cmd"
 ```
 
-Om resultatet är `False`, kör installationen igen:
+If the result is `False`, run the installation again:
 
 ```powershell
 .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
-Meddelandet att kommandot finns i aktuell katalog betyder något annat:
-PowerShell söker av säkerhetsskäl inte automatiskt efter kommandon i den
-aktuella katalogen. Kör den lokala startfilen med en explicit relativ sökväg:
+The message that the command exists in the current directory describes a
+different issue. For security reasons, PowerShell does not search the current
+directory for commands automatically. Run the local launcher with an explicit
+relative path:
 
 ```powershell
 .\skit.cmd version
 ```
 
-Detta kör den lokala `skit.cmd`. Kommandot `skit version` utan `.\` använder
-i stället den globalt installerade kopian som hittas via `PATH`.
+This runs the local `skit.cmd`. The `skit version` command without `.\` uses
+the globally installed copy found through `PATH`.

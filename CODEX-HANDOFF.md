@@ -1,30 +1,29 @@
-# Instruktion till Codex
+# Instructions for Codex
 
-Använd följande text när projektet lämnas över till en ny Codex-session:
+Use the following text when handing the project to a new Codex session:
 
-> Läs först `AGENTS.md`, `README.md`, `DEVELOPMENT.md` och `CHANGELOG.md`.
-> Behandla dokumenterade CLI-kommandon, versionsregler, SHA-256-kontroller,
-> externa verktygsargument och formatet för `skit.yml` som
-> bakåtkompatibilitetskontrakt.
+> First read `AGENTS.md`, `README.md`, `DEVELOPMENT.md`, and `CHANGELOG.md`.
+> Treat documented CLI commands, version rules, SHA-256 checks, external tool
+> arguments, and the `skit.yml` format as backward-compatibility contracts.
 >
-> Implementera den efterfrågade ändringen i
-> `SCUM-Mod-Toolkit.ps1`. Behåll kompatibilitet med Windows PowerShell 5.1
-> och gör inga installationer eller PATH-ändringar när scriptet dot-sourcas.
-> Kod, funktionsnamn, kommentarer, loggtexter, felmeddelanden och testnamn ska
-> vara på engelska. Användardokumentation ska vara på svenska.
+> Implement the requested change in `SCUM-Mod-Toolkit.ps1`. Preserve Windows
+> PowerShell 5.1 compatibility, and do not install anything or modify `PATH`
+> when the script is dot-sourced. Code, function names, comments, log
+> messages, error messages, test names, and documentation must be in English.
 >
-> Lägg till eller uppdatera Pester-tester för både normalfall och relevanta
-> fel. Kör hela testsviten i Windows PowerShell 5.1. Uppdatera dokumentation
-> och `CHANGELOG.md` när beteendet ändras. Om detta är en ny version av SKit,
-> uppdatera även `$script:SKitVersion`.
+> Add or update Pester tests for both the normal case and relevant failures.
+> Run the complete test suite in Windows PowerShell 5.1. Update documentation
+> and `CHANGELOG.md` when behavior changes. If this is a new SKit version,
+> also update `$script:SKitVersion`.
 >
-> Verifiera ändringar av repak, UAssetGUI, FModel eller GitHub API mot
-> respektive officiella upstream-källa. Försvaga inte SHA-256-verifieringen.
+> Verify changes involving repak, UAssetGUI, FModel, or the GitHub API against
+> the corresponding official upstream source. Do not weaken SHA-256
+> verification.
 >
-> Avsluta med en kort sammanställning av ändrade filer, testresultat och
-> sådant som fortfarande kräver ett riktigt Windows/SCUM-test.
+> Finish with a short summary of changed files, test results, and anything
+> that still requires a real Windows/SCUM test.
 
-Lägg till den konkreta uppgiften efter texten, exempelvis:
+Append the concrete task after the text. For example:
 
-> Uppgift: Lägg till kommandot `skit clean`, som tar bort projektets lokala
-> buildartefakter efter tydlig bekräftelse.
+> Task: Add the `skit clean` command, which removes local project build
+> artifacts after explicit confirmation.
