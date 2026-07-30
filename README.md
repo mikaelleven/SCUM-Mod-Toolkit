@@ -19,14 +19,14 @@ Extract the files and run:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
-.\SCUM-Mod-Toolkit.ps1 self-install
+.\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
 Only use `Unblock-File` after reviewing and trusting the script. Open a new
 terminal and install the tools:
 
 ```powershell
-skit tools
+skit setup tools
 ```
 
 If PowerShell blocks the script or cannot find the `skit` command, see
@@ -40,7 +40,7 @@ SKit is installed in:
 
 The directory is added to the user `PATH`. If SKit is not already installed,
 running `SCUM-Mod-Toolkit.ps1` directly also performs an initial
-self-installation. Run `self-install` again to update the installed copy.
+self-installation. Run `skit setup self` again to update the installed copy.
 The installed script keeps the name `SCUM-Mod-Toolkit.ps1`, and `skit.cmd`
 launches that file.
 
@@ -51,13 +51,13 @@ missing or does not match.
 Let SKit detect SCUM automatically in the configured Steam libraries:
 
 ```powershell
-skit config detect-scum
+skit setup detect-path
 ```
 
 The installation directory can also be configured manually:
 
 ```powershell
-skit config "D:\SteamLibrary\steamapps\common\SCUM"
+skit setup set-path "D:\SteamLibrary\steamapps\common\SCUM"
 ```
 
 The setting is stored in:
@@ -75,7 +75,7 @@ as migration backups.
 Download the current AES key for SCUM:
 
 ```powershell
-skit config find-key
+skit setup find-key
 ```
 
 SKit locates the entry named `SCUM` on the source page regardless of its line
@@ -85,7 +85,7 @@ as `SCUM-AES-Key.txt` in the current directory.
 To store the key directly in `SCUM-Mod-Toolkit.yaml`, use:
 
 ```powershell
-skit config get-key
+skit setup get-key
 ```
 
 If FModel has been started before and already has a SCUM game entry, SKit
@@ -94,16 +94,31 @@ command. SKit creates `AppSettings.json.skit-backup` before the first update.
 If FModel is unavailable or has no SCUM entry, the key is still stored in
 the SKit configuration.
 
+Open the global YAML configuration in the default associated editor:
+
+```powershell
+skit setup open-config
+```
+
+SKit creates the configuration first when it does not exist. If Windows
+cannot open the configured YAML editor, SKit falls back to Notepad.
+
+Show all setup commands:
+
+```powershell
+skit setup help
+```
+
 Custom SCUM launch parameters can be configured from the CLI:
 
 ```powershell
-skit config set-startparams "-windowed -ResX=1920 -ResY=1080"
+skit setup set-startparams "-windowed -ResX=1920 -ResY=1080"
 ```
 
 Clear them by passing an empty string:
 
 ```powershell
-skit config set-startparams ""
+skit setup set-startparams ""
 ```
 
 The same values can be edited manually in
@@ -224,9 +239,9 @@ Restart the game normally before joining servers that use BattlEye.
 ## Individual tools
 
 ```powershell
-skit tools fmodel
-skit tools repak
-skit tools uassetgui
+skit setup tools fmodel
+skit setup tools repak
+skit setup tools uassetgui
 ```
 
 After installation, `FModel`, `repak`, and `UAssetGUI` can be started
@@ -270,7 +285,7 @@ remove the internet mark from that specific file:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
-.\SCUM-Mod-Toolkit.ps1 self-install
+.\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
 If the distribution is delivered as a ZIP file, unblock the ZIP file before
@@ -285,14 +300,14 @@ process only:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass -Force
-.\SCUM-Mod-Toolkit.ps1 self-install
+.\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
 You can also start a separate Windows PowerShell 5.1 process with a one-time
 policy:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SCUM-Mod-Toolkit.ps1 self-install
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
 Do not change `LocalMachine` or `CurrentUser` to `Bypass` solely for SKit. A
@@ -308,7 +323,7 @@ skit: The term 'skit' is not recognized as a name of a cmdlet, function,
 script file, or executable program.
 ```
 
-`self-install` adds `%LOCALAPPDATA%\Programs\SKit` to the user `PATH`, but an
+`skit setup self` adds `%LOCALAPPDATA%\Programs\SKit` to the user `PATH`, but an
 already open terminal normally does not load the updated setting
 automatically. The recommended solution is:
 
@@ -339,7 +354,7 @@ Test-Path -LiteralPath "$env:LOCALAPPDATA\Programs\SKit\skit.cmd"
 If the result is `False`, run the installation again:
 
 ```powershell
-.\SCUM-Mod-Toolkit.ps1 self-install
+.\SCUM-Mod-Toolkit.ps1 setup self
 ```
 
 The message that the command exists in the current directory describes a

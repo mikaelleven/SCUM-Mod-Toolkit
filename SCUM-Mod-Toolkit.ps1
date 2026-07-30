@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.3'
+$script:SKitVersion = '1.1.0.4'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -253,6 +253,31 @@ function Get-ExpectedSha256 {
     return $Matches[1].ToLowerInvariant()
 }
 
+function Get-FileSha256 {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "Cannot calculate SHA-256 because the file was not found: $Path"
+    }
+
+    $stream = $null
+    $sha256 = $null
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $hashBytes = $sha256.ComputeHash($stream)
+        return [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        if ($null -ne $sha256) {
+            $sha256.Dispose()
+        }
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+}
+
 function Invoke-VerifiedDownload {
     param(
         [Parameter(Mandatory)]$Asset,
@@ -271,7 +296,7 @@ function Invoke-VerifiedDownload {
         throw "Downloaded size does not match the GitHub release metadata for '$($Asset.name)'."
     }
 
-    $actualHash = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualHash = Get-FileSha256 -Path $Destination
     if ($actualHash -ne $expectedHash) {
         throw "SHA-256 verification failed for '$($Asset.name)'. Expected $expectedHash but got $actualHash."
     }
@@ -407,7 +432,7 @@ function Get-ToolExecutable {
     $definition = Get-ToolDefinition -Tool $Tool
     $path = Join-Path (Join-Path $script:ToolsRoot $definition.Id) $definition.Executable
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "$($definition.Name) is not installed. Run: skit tools $Tool"
+        throw "$($definition.Name) is not installed. Run: skit setup tools $Tool"
     }
 
     return $path
@@ -1023,6 +1048,20 @@ function Initialize-SKitConfig {
         -ScumStartParams $config.ScumStartParams
 }
 
+function Open-SKitConfig {
+    if (-not (Test-Path -LiteralPath $script:GlobalConfigPath -PathType Leaf)) {
+        Initialize-SKitConfig
+    }
+
+    try {
+        Start-Process -FilePath $script:GlobalConfigPath
+    }
+    catch {
+        Start-Process -FilePath 'notepad.exe' -ArgumentList @($script:GlobalConfigPath)
+    }
+    Write-Success "Opened SKit configuration: $script:GlobalConfigPath"
+}
+
 function Read-SKitConfig {
     $config = Merge-SKitConfig
     if (-not $config.FoundConfig) {
@@ -1115,7 +1154,7 @@ function Set-SKitScumAesKey {
 function Get-ConfiguredScumPath {
     $config = Read-SKitConfig
     if ([string]::IsNullOrWhiteSpace($config.ScumPath)) {
-        throw 'SCUM path is not configured. Run: skit config detect-scum'
+        throw 'SCUM path is not configured. Run: skit setup detect-path'
     }
     return Resolve-FullPath -Path $config.ScumPath
 }
@@ -1355,13 +1394,13 @@ function Update-FModelScumAesKey {
     param([Parameter(Mandatory)][string]$Key)
 
     if (Get-Process -Name 'FModel' -ErrorAction SilentlyContinue) {
-        Write-Info 'FModel is running. Close it and run skit config get-key again to update FModel.'
+        Write-Info 'FModel is running. Close it and run skit setup get-key again to update FModel.'
         return $false
     }
 
     $settingsPath = Get-FModelSettingsPath
     if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
-        Write-Info 'FModel settings were not found. Start FModel once, close it, and run skit config get-key again.'
+        Write-Info 'FModel settings were not found. Start FModel once, close it, and run skit setup get-key again.'
         return $false
     }
 
@@ -1401,7 +1440,7 @@ function Update-FModelScumAesKey {
         }
     }
     if ($null -eq $targetEntry) {
-        Write-Info 'FModel has no SCUM game entry. Select SCUM in FModel, close FModel, and run skit config get-key again.'
+        Write-Info 'FModel has no SCUM game entry. Select SCUM in FModel, close FModel, and run skit setup get-key again.'
         return $false
     }
 
@@ -1504,13 +1543,7 @@ Usage:
   skit <command> [arguments]
 
 Setup:
-  skit tools [all|fmodel|repak|uassetgui]  Install latest verified tools
-  skit self-install                        Reinstall SKit and register user PATH
-  skit config <scum-path>                  Configure the SCUM installation root
-  skit config detect-scum                  Detect SCUM.exe in Steam libraries
-  skit config find-key                     Save the current SCUM AES key as a text file
-  skit config get-key                      Store the current SCUM AES key in the configuration
-  skit config set-startparams <parameters> Configure custom SCUM launch parameters
+  skit setup help                          Show setup commands
 
 Files:
   skit unpack <file.pak> [output-dir]       Unpack a .pak with repak
@@ -1535,6 +1568,100 @@ Other:
 "@
 }
 
+function Show-SetupHelp {
+    @"
+SCUM Mod Toolkit setup
+
+Usage:
+  skit setup <command> [arguments]
+
+Commands:
+  skit setup self                          Reinstall SKit and register user PATH
+  skit setup tools [all|fmodel|repak|uassetgui]
+                                              Install latest verified tools
+  skit setup set-path <scum-path>          Configure the SCUM installation root
+  skit setup detect-path                   Detect SCUM.exe in Steam libraries
+  skit setup find-key                      Save the current SCUM AES key as a text file
+  skit setup get-key                       Store the current SCUM AES key in the configuration
+  skit setup open-config                   Open or create SCUM-Mod-Toolkit.yaml
+  skit setup set-startparams <parameters>  Configure custom SCUM launch parameters
+  skit setup help                          Show this help
+"@
+}
+
+function Invoke-SKitSetupCommand {
+    param([string[]]$SetupArguments = @())
+
+    if ($SetupArguments.Count -eq 0) {
+        Show-SetupHelp
+        return
+    }
+
+    $setupCommand = $SetupArguments[0].ToLowerInvariant()
+    switch ($setupCommand) {
+        'help' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup help'
+            }
+            Show-SetupHelp
+        }
+        'self' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup self'
+            }
+            Install-Self
+            Write-Success "SKit installed in $script:InstallRoot"
+            Write-Info 'Open a new terminal if the skit command is not yet available in this one.'
+        }
+        'tools' {
+            if ($SetupArguments.Count -gt 2) {
+                throw 'Usage: skit setup tools [all|fmodel|repak|uassetgui]'
+            }
+            $selection = if ($SetupArguments.Count -eq 2) { $SetupArguments[1] } else { 'all' }
+            Install-Tools -Selection $selection
+        }
+        'set-path' {
+            if ($SetupArguments.Count -ne 2) {
+                throw 'Usage: skit setup set-path <scum-path>'
+            }
+            Set-SKitScumPath -ScumPath $SetupArguments[1]
+        }
+        'detect-path' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup detect-path'
+            }
+            Find-AndConfigureScum
+        }
+        'find-key' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup find-key'
+            }
+            [void](Find-AndSaveScumAesKey)
+        }
+        'get-key' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup get-key'
+            }
+            Get-AndConfigureScumAesKey
+        }
+        'open-config' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup open-config'
+            }
+            Open-SKitConfig
+        }
+        'set-startparams' {
+            if ($SetupArguments.Count -lt 2) {
+                throw 'Usage: skit setup set-startparams <parameter-string>'
+            }
+            Set-SKitStartParameters -StartParameters ($SetupArguments[1..($SetupArguments.Count - 1)] -join ' ')
+        }
+        default {
+            throw "Unknown setup command '$($SetupArguments[0])'. Run: skit setup help"
+        }
+    }
+}
+
 function Invoke-SKitCommand {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -1557,44 +1684,8 @@ function Invoke-SKitCommand {
             '--version' {
                 Write-Output $script:SKitVersion
             }
-            'self-install' {
-                Install-Self
-                Write-Success "SKit installed in $script:InstallRoot"
-                Write-Info 'Open a new terminal if the skit command is not yet available in this one.'
-            }
-            'tools' {
-                $selection = if ($Arguments.Count -gt 0) { $Arguments[0] } else { 'all' }
-                Install-Tools -Selection $selection
-            }
-            'install-tools' {
-                $selection = if ($Arguments.Count -gt 0) { $Arguments[0] } else { 'all' }
-                Install-Tools -Selection $selection
-            }
-            'config' {
-                if ($Arguments.Count -lt 1) {
-                    throw 'Usage: skit config <scum-path>|detect-scum|find-key|get-key|set-startparams <parameters>'
-                }
-                $configCommand = $Arguments[0].ToLowerInvariant()
-                switch ($configCommand) {
-                    'detect-scum' {
-                        Find-AndConfigureScum
-                    }
-                    'find-key' {
-                        [void](Find-AndSaveScumAesKey)
-                    }
-                    'get-key' {
-                        Get-AndConfigureScumAesKey
-                    }
-                    'set-startparams' {
-                        if ($Arguments.Count -lt 2) {
-                            throw 'Usage: skit config set-startparams <parameter-string>'
-                        }
-                        Set-SKitStartParameters -StartParameters ($Arguments[1..($Arguments.Count - 1)] -join ' ')
-                    }
-                    default {
-                        Set-SKitScumPath -ScumPath $Arguments[0]
-                    }
-                }
+            'setup' {
+                Invoke-SKitSetupCommand -SetupArguments $Arguments
             }
             'unpack' {
                 if ($Arguments.Count -lt 1) { throw 'Usage: skit unpack <file.pak> [output-dir]' }

@@ -61,9 +61,10 @@ During normal execution, `Ensure-SelfInstalled` runs before the command:
 - If `SCUM-Mod-Toolkit.ps1` or `skit.cmd` is missing, SKit installs itself
   automatically.
 - If both files exist, the installed copy is left unchanged.
-- `self-install` explicitly runs `Install-Self` and updates the installed
+- `setup self` explicitly runs `Install-Self` and updates the installed
   copy.
-- A successful self-install removes the obsolete installed `skit.ps1`.
+- A successful setup self operation removes the obsolete installed
+  `skit.ps1`.
 
 All CLI-level errors are caught, written as `[SKit] ERROR: <message>`, and
 return exit code `1`.
@@ -90,6 +91,9 @@ The security contract is:
 
 There is intentionally no fallback to a checksum obtained from release body
 text, HTML, or a separate unverified file.
+The local hash is calculated with
+`System.Security.Cryptography.SHA256`; SKit does not depend on the optional
+`Get-FileHash` cmdlet.
 
 ### Command contracts
 
@@ -157,20 +161,20 @@ When it is missing, the path is derived from `scumPath`.
 `scumAesKey` must be empty or contain `0x` followed by exactly 64 hexadecimal
 characters. `scumStartParams` is an optional string passed to SCUM at launch.
 
-`config detect-scum` locates Steam through the registry or default
+`setup detect-path` locates Steam through the registry or default
 installation, reads both older and newer
 `steamapps\libraryfolders.vdf` formats, and searches each library for
 `steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe`. The detected
 installation root and executable path are written to
 `SCUM-Mod-Toolkit.yaml`.
 
-`config find-key` downloads the documented Games Translator page, removes
+`setup find-key` downloads the documented Games Translator page, removes
 HTML markup, and matches the `SCUM` entry followed by exactly `0x` and 64
 hexadecimal characters. The key is stored by itself in
 `SCUM-AES-Key.txt` in the current directory. A network failure or a missing
 or invalid key is a hard error.
 
-`config get-key` performs the same download and stores the key as
+`setup get-key` performs the same download and stores the key as
 `scumAesKey` in `SCUM-Mod-Toolkit.yaml`. It then attempts to update the main
 AES key in `%APPDATA%\FModel\AppSettings.json` when:
 
@@ -184,7 +188,18 @@ to a temporary file, parsed for validation, and then moved over the settings
 file. A skipped FModel update is informational and does not undo the YAML
 configuration.
 
-`config set-startparams <parameter-string>` stores the complete string as
+`setup open-config` creates `SCUM-Mod-Toolkit.yaml` through the normal
+configuration merge when it is missing. It first asks Windows to open the
+file through its YAML association and falls back to `notepad.exe` if that
+fails.
+
+`setup help` is dispatched separately from the main help and lists only
+setup commands. The setup dispatcher owns `self`, `tools`, `set-path`,
+`detect-path`, `find-key`, `get-key`, `open-config`, `set-startparams`, and
+`help`. The former top-level `tools`, `self-install`, and `config` forms are
+not accepted.
+
+`setup set-startparams <parameter-string>` stores the complete string as
 `scumStartParams`. An explicitly empty string clears it. Both `play` modes
 append the custom string. The `modded` mode first adds
 `-fileopenlog -nobattleye`; the `default` mode does not.
@@ -292,6 +307,7 @@ The test suite covers:
 - repak and UAssetGUI arguments;
 - staging with excluded files;
 - Steam library detection and stored SCUM configuration;
+- setup command dispatch and YAML editor fallback;
 - content-based AES key matching, text-file output, YAML storage, and guarded
   FModel settings updates;
 - default and custom arguments for modded and default launch modes.
@@ -301,9 +317,9 @@ A release must also be smoke-tested on Windows:
 ```powershell
 .\SCUM-Mod-Toolkit.ps1 version
 .\SCUM-Mod-Toolkit.ps1 help
-.\SCUM-Mod-Toolkit.ps1 self-install
-skit tools repak
-skit tools uassetgui
+.\SCUM-Mod-Toolkit.ps1 setup self
+skit setup tools repak
+skit setup tools uassetgui
 ```
 
 Before a production release, also perform the following with real test
@@ -312,9 +328,10 @@ files:
 1. Pack and unpack a small PAK.
 2. Export a UE 4.27 `.uasset` to JSON.
 3. Import the JSON and open the result.
-4. Run `init`, `build`, `install`, `test`, `config detect-scum`,
-   `config find-key`, `config get-key`, `config set-startparams`, and both
-   `play` modes against a test installation.
+4. Run `init`, `build`, `install`, `test`, `setup detect-path`,
+   `setup find-key`, `setup get-key`, `setup open-config`,
+   `setup set-startparams`, and both `play` modes against a test
+   installation.
 
 ## Known limitations
 

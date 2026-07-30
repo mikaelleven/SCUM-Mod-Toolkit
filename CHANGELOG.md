@@ -2,6 +2,28 @@
 
 All notable SKit changes are documented in this file.
 
+## 1.1.0.4 - 2026-07-30
+
+### Added
+
+- `skit setup open-config` for creating and opening the global YAML
+  configuration through its Windows file association with a Notepad
+  fallback.
+- `skit setup help` with dedicated setup command documentation.
+
+### Changed
+
+- Moved tool installation, self-installation, SCUM path configuration,
+  automatic path detection, AES key commands, and custom launch parameters
+  below `skit setup`.
+- Renamed automatic SCUM detection to `skit setup detect-path`.
+- Removed the replaced top-level and `skit config` command forms.
+
+### Fixed
+
+- Replaced the unavailable `Get-FileHash` dependency with a
+  Windows PowerShell 5.1-compatible .NET SHA-256 implementation.
+
 ## 1.1.0.3 - 2026-07-30
 
 ### Added

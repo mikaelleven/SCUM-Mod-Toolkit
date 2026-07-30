@@ -219,6 +219,36 @@ Describe 'Release asset verification' {
         Get-ExpectedSha256 -Asset $asset | Should -Be $hash
     }
 
+    It 'calculates SHA-256 without the Get-FileHash cmdlet' {
+        $path = Join-Path $TestDrive 'hash-test.txt'
+        [System.IO.File]::WriteAllText($path, 'abc', [System.Text.Encoding]::ASCII)
+
+        Get-FileSha256 -Path $path |
+            Should -Be 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    }
+
+    It 'verifies a downloaded file with the built-in SHA-256 implementation' {
+        $destination = Join-Path $TestDrive 'downloaded-tool.zip'
+        $expectedHash = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+        $asset = [pscustomobject]@{
+            name = 'tool.zip'
+            digest = "sha256:$expectedHash"
+            size = 3
+            browser_download_url = 'https://example.invalid/tool.zip'
+        }
+        Mock Invoke-WebRequest {
+            [System.IO.File]::WriteAllText(
+                $OutFile,
+                'abc',
+                [System.Text.Encoding]::ASCII
+            )
+        }
+
+        Invoke-VerifiedDownload -Asset $asset -Destination $destination
+
+        (Test-Path -LiteralPath $destination -PathType Leaf) | Should -BeTrue
+    }
+
     It 'rejects missing or malformed GitHub digests' {
         { Get-ExpectedSha256 -Asset ([pscustomobject]@{ name = 'tool.zip' }) } |
             Should -Throw '*did not provide SHA-256 metadata*'
@@ -431,7 +461,35 @@ Describe 'Global SKit configuration' {
         Write-SKitConfig
 
         { Get-ConfiguredScumPath } |
-            Should -Throw '*Run: skit config detect-scum*'
+            Should -Throw '*Run: skit setup detect-path*'
+    }
+
+    It 'creates and opens the global configuration' {
+        Mock Start-Process {}
+
+        Open-SKitConfig
+
+        (Test-Path -LiteralPath $script:GlobalConfigPath -PathType Leaf) |
+            Should -BeTrue
+        Assert-MockCalled Start-Process -Times 1 -ParameterFilter {
+            $FilePath -eq $script:GlobalConfigPath
+        }
+    }
+
+    It 'falls back to Notepad when the YAML association cannot be opened' {
+        Write-SKitConfig
+        Mock Start-Process {
+            if ($FilePath -ne 'notepad.exe') {
+                throw 'No YAML file association'
+            }
+        }
+
+        Open-SKitConfig
+
+        Assert-MockCalled Start-Process -Times 1 -ParameterFilter {
+            $FilePath -eq 'notepad.exe' -and
+            $ArgumentList[0] -eq $script:GlobalConfigPath
+        }
     }
 
     It 'installs the renamed script and removes the legacy installed script' {
@@ -446,6 +504,79 @@ Describe 'Global SKit configuration' {
         (Test-Path -LiteralPath $legacyInstalledScript) | Should -BeFalse
         [System.IO.File]::ReadAllText((Join-Path $script:InstallRoot 'skit.cmd')) |
             Should -Match 'SCUM-Mod-Toolkit\.ps1'
+    }
+}
+
+Describe 'Setup command dispatch' {
+    BeforeEach {
+        Mock Install-Self {}
+        Mock Install-Tools {}
+        Mock Set-SKitScumPath {}
+        Mock Find-AndConfigureScum {}
+        Mock Find-AndSaveScumAesKey { 'C:\Temp\SCUM-AES-Key.txt' }
+        Mock Get-AndConfigureScumAesKey {}
+        Mock Open-SKitConfig {}
+        Mock Set-SKitStartParameters {}
+    }
+
+    It 'shows dedicated setup help' {
+        $help = Invoke-SKitSetupCommand -SetupArguments @('help') | Out-String
+
+        $help | Should -Match 'skit setup open-config'
+        $help | Should -Match 'skit setup detect-path'
+    }
+
+    It 'installs all tools by default' {
+        Invoke-SKitSetupCommand -SetupArguments @('tools')
+
+        Assert-MockCalled Install-Tools -Times 1 -ParameterFilter {
+            $Selection -eq 'all'
+        }
+    }
+
+    It 'dispatches a selected tool' {
+        Invoke-SKitSetupCommand -SetupArguments @('tools', 'repak')
+
+        Assert-MockCalled Install-Tools -Times 1 -ParameterFilter {
+            $Selection -eq 'repak'
+        }
+    }
+
+    It 'dispatches set-path with the complete path argument' {
+        Invoke-SKitSetupCommand -SetupArguments @('set-path', 'D:\Steam Library\SCUM')
+
+        Assert-MockCalled Set-SKitScumPath -Times 1 -ParameterFilter {
+            $ScumPath -eq 'D:\Steam Library\SCUM'
+        }
+    }
+
+    It 'dispatches setup commands without legacy command names' {
+        Invoke-SKitSetupCommand -SetupArguments @('detect-path')
+        Invoke-SKitSetupCommand -SetupArguments @('find-key')
+        Invoke-SKitSetupCommand -SetupArguments @('get-key')
+        Invoke-SKitSetupCommand -SetupArguments @('open-config')
+
+        Assert-MockCalled Find-AndConfigureScum -Times 1
+        Assert-MockCalled Find-AndSaveScumAesKey -Times 1
+        Assert-MockCalled Get-AndConfigureScumAesKey -Times 1
+        Assert-MockCalled Open-SKitConfig -Times 1
+    }
+
+    It 'dispatches the complete custom start parameter string' {
+        Invoke-SKitSetupCommand -SetupArguments @(
+            'set-startparams',
+            '-windowed',
+            '-ResX=1920'
+        )
+
+        Assert-MockCalled Set-SKitStartParameters -Times 1 -ParameterFilter {
+            $StartParameters -eq '-windowed -ResX=1920'
+        }
+    }
+
+    It 'rejects an unknown setup command' {
+        { Invoke-SKitSetupCommand -SetupArguments @('detect-scum') } |
+            Should -Throw '*Run: skit setup help*'
     }
 }
 
