@@ -18,15 +18,19 @@ SKit hämtar externa verktyg men installerar inte deras runtime-beroenden.
 Packa upp filerna och kör:
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
+Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
 .\SCUM-Mod-Toolkit.ps1 self-install
 ```
 
+Använd endast `Unblock-File` efter att du har granskat och litar på scriptet.
 Öppna en ny terminal och installera verktygen:
 
 ```powershell
 skit tools
 ```
+
+Om PowerShell blockerar scriptet eller inte hittar kommandot `skit`, se
+[FAQ och felsökning](#faq-och-felsökning).
 
 SKit installeras i:
 
@@ -198,3 +202,110 @@ Tester körs med Pester 5:
 ```powershell
 .\tests\Run-Tests.ps1
 ```
+
+## FAQ och felsökning
+
+### Scriptet är inte digitalt signerat
+
+PowerShell kan visa följande fel:
+
+```text
+SCUM-Mod-Toolkit.ps1 cannot be loaded. The file is not digitally signed.
+You cannot run this script on the current system.
+```
+
+Det händer vanligtvis när PowerShell använder `RemoteSigned` och Windows har
+markerat filen som nedladdad från internet. Kontrollera aktuell policy med:
+
+```powershell
+Get-ExecutionPolicy -List
+```
+
+Efter att du har granskat och litar på scriptet är den rekommenderade
+lösningen att ta bort internetmarkeringen från just den filen:
+
+```powershell
+Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
+.\SCUM-Mod-Toolkit.ps1 self-install
+```
+
+Om distributionen levereras som en ZIP-fil kan du i stället avblockera
+ZIP-filen innan den packas upp:
+
+```powershell
+Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.zip
+```
+
+Som tillfällig lösning kan policyn ändras endast för den aktuella
+PowerShell-processen:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+.\SCUM-Mod-Toolkit.ps1 self-install
+```
+
+Det går även att starta en separat Windows PowerShell 5.1-process med en
+engångspolicy:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\SCUM-Mod-Toolkit.ps1 self-install
+```
+
+Ändra inte `LocalMachine` eller `CurrentUser` till `Bypass` enbart för SKit.
+En permanent lösning för bred distribution är att signera releases med ett
+betrott kodsigneringscertifikat. Scriptet måste signeras på nytt efter varje
+ändring.
+
+### Kommandot `skit` hittas inte
+
+Efter installation kan PowerShell visa:
+
+```text
+skit: The term 'skit' is not recognized as a name of a cmdlet, function,
+script file, or executable program.
+```
+
+`self-install` lägger till `%LOCALAPPDATA%\Programs\SKit` i användarens
+`PATH`, men en terminal som redan är öppen läser normalt inte in den nya
+inställningen automatiskt. Rekommenderad lösning:
+
+1. Stäng den aktuella terminalen.
+2. Öppna en ny PowerShell-terminal.
+3. Kontrollera installationen:
+
+```powershell
+skit version
+```
+
+För att uppdatera endast den aktuella terminalen utan omstart:
+
+```powershell
+$skitRoot = Join-Path $env:LOCALAPPDATA 'Programs\SKit'
+if (($env:Path -split ';') -notcontains $skitRoot) {
+    $env:Path += ";$skitRoot"
+}
+skit version
+```
+
+Kontrollera att installationen verkligen finns:
+
+```powershell
+Test-Path -LiteralPath "$env:LOCALAPPDATA\Programs\SKit\skit.cmd"
+```
+
+Om resultatet är `False`, kör installationen igen:
+
+```powershell
+.\SCUM-Mod-Toolkit.ps1 self-install
+```
+
+Meddelandet att kommandot finns i aktuell katalog betyder något annat:
+PowerShell söker av säkerhetsskäl inte automatiskt efter kommandon i den
+aktuella katalogen. Kör den lokala startfilen med en explicit relativ sökväg:
+
+```powershell
+.\skit.cmd version
+```
+
+Detta kör den lokala `skit.cmd`. Kommandot `skit version` utan `.\` använder
+i stället den globalt installerade kopian som hittas via `PATH`.

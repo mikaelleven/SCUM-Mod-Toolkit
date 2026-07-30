@@ -2,6 +2,13 @@
 
 Alla betydande ändringar av SKit dokumenteras här.
 
+## 1.1.0.1 - 2026-07-30
+
+### Changed
+
+- Added installation troubleshooting for unsigned downloaded scripts,
+  execution policies, PATH refresh, and local `skit.cmd` invocation.
+
 ## 1.1.0 - 2026-07-30
 
 ### Added

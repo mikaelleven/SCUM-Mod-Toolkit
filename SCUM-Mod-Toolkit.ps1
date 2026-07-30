@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0'
+$script:SKitVersion = '1.1.0.1'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
