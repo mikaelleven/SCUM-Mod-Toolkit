@@ -312,14 +312,12 @@ Describe 'Global SKit configuration' {
         $script:originalGlobalConfigPath = $script:GlobalConfigPath
         $script:originalPreviousGlobalConfigPath = $script:PreviousGlobalConfigPath
         $script:originalLegacyGlobalConfigPath = $script:LegacyGlobalConfigPath
-        $script:originalScumAesKeyPath = $script:ScumAesKeyPath
 
         $script:InstallRoot = Join-Path $TestDrive 'SKit'
         $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
         $script:GlobalConfigPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'
         $script:PreviousGlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
         $script:LegacyGlobalConfigPath = Join-Path $script:InstallRoot 'skit.config.yml'
-        $script:ScumAesKeyPath = Join-Path $script:InstallRoot 'SCUM-AES-Key.txt'
         [void][System.IO.Directory]::CreateDirectory($script:InstallRoot)
     }
 
@@ -329,7 +327,6 @@ Describe 'Global SKit configuration' {
         $script:GlobalConfigPath = $script:originalGlobalConfigPath
         $script:PreviousGlobalConfigPath = $script:originalPreviousGlobalConfigPath
         $script:LegacyGlobalConfigPath = $script:originalLegacyGlobalConfigPath
-        $script:ScumAesKeyPath = $script:originalScumAesKeyPath
     }
 
     It 'reads the legacy configuration when the current file does not exist' {
@@ -376,6 +373,44 @@ Describe 'Global SKit configuration' {
         )
 
         (Read-SKitConfig).ScumPath | Should -Be 'C:\Current'
+    }
+
+    It 'merges and reads AES key and custom start parameters' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        [System.IO.File]::WriteAllText(
+            $script:LegacyGlobalConfigPath,
+            "scumAesKey: '$expectedKey'`r`nscumStartParams: '-windowed'`r`n"
+        )
+        [System.IO.File]::WriteAllText(
+            $script:GlobalConfigPath,
+            "scumStartParams: '-windowed -ResX=1920'`r`n"
+        )
+
+        $config = Read-SKitConfig
+
+        $config.ScumAesKey | Should -Be $expectedKey
+        $config.ScumStartParams | Should -Be '-windowed -ResX=1920'
+    }
+
+    It 'rejects an invalid configured AES key' {
+        [System.IO.File]::WriteAllText(
+            $script:GlobalConfigPath,
+            "scumAesKey: '0x1234'`r`n"
+        )
+
+        { Read-SKitConfig } | Should -Throw '*valid 256-bit AES key*'
+    }
+
+    It 'stores custom start parameters without changing other settings' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        Write-SKitConfig -ScumPath 'C:\Games\SCUM' -ScumAesKey $expectedKey
+
+        Set-SKitStartParameters -StartParameters '-windowed -ResX=1920'
+        $config = Read-SKitConfig
+
+        $config.ScumPath | Should -Be 'C:\Games\SCUM'
+        $config.ScumAesKey | Should -Be $expectedKey
+        $config.ScumStartParams | Should -Be '-windowed -ResX=1920'
     }
 
     It 'stores the detected executable and installation root in SCUM-Mod-Toolkit.yaml' {
@@ -439,14 +474,26 @@ Describe 'SCUM discovery' {
 Describe 'SCUM AES key discovery' {
     BeforeEach {
         $script:originalInstallRoot = $script:InstallRoot
-        $script:originalScumAesKeyPath = $script:ScumAesKeyPath
+        $script:originalToolsRoot = $script:ToolsRoot
+        $script:originalGlobalConfigPath = $script:GlobalConfigPath
+        $script:originalPreviousGlobalConfigPath = $script:PreviousGlobalConfigPath
+        $script:originalLegacyGlobalConfigPath = $script:LegacyGlobalConfigPath
         $script:InstallRoot = Join-Path $TestDrive 'SKit'
-        $script:ScumAesKeyPath = Join-Path $script:InstallRoot 'SCUM-AES-Key.txt'
+        $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
+        $script:GlobalConfigPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'
+        $script:PreviousGlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
+        $script:LegacyGlobalConfigPath = Join-Path $script:InstallRoot 'skit.config.yml'
+        [void][System.IO.Directory]::CreateDirectory($script:InstallRoot)
+        Push-Location $TestDrive
     }
 
     AfterEach {
+        Pop-Location
         $script:InstallRoot = $script:originalInstallRoot
-        $script:ScumAesKeyPath = $script:originalScumAesKeyPath
+        $script:ToolsRoot = $script:originalToolsRoot
+        $script:GlobalConfigPath = $script:originalGlobalConfigPath
+        $script:PreviousGlobalConfigPath = $script:originalPreviousGlobalConfigPath
+        $script:LegacyGlobalConfigPath = $script:originalLegacyGlobalConfigPath
     }
 
     It 'finds the key by game name instead of line number' {
@@ -467,8 +514,44 @@ Describe 'SCUM AES key discovery' {
 
         $savedPath = Find-AndSaveScumAesKey
 
-        $savedPath | Should -Be $script:ScumAesKeyPath
+        $savedPath | Should -Be (Join-Path $TestDrive 'SCUM-AES-Key.txt')
         [System.IO.File]::ReadAllText($savedPath).Trim() | Should -Be $expectedKey
+    }
+
+    It 'stores the downloaded key in the global configuration' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        Write-SKitConfig -ScumPath 'C:\Games\SCUM'
+        Mock Get-ScumAesKeyFromWeb { $expectedKey }
+        Mock Update-FModelScumAesKey { $false }
+
+        Get-AndConfigureScumAesKey
+
+        (Read-SKitConfig).ScumAesKey | Should -Be $expectedKey
+        Assert-MockCalled Update-FModelScumAesKey -Times 1 -ParameterFilter {
+            $Key -eq $expectedKey
+        }
+    }
+
+    It 'updates an existing SCUM entry in FModel settings' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        $settingsPath = Join-Path $TestDrive 'FModel\AppSettings.json'
+        [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $settingsPath))
+        Write-SKitConfig -ScumPath 'C:\Games\SCUM'
+        [System.IO.File]::WriteAllText(
+            $settingsPath,
+            '{"OtherSetting":true,"PerDirectory":{"C:\\Games\\SCUM":{"GameDirectory":"C:\\Games\\SCUM","AesKeys":{"mainKey":"","dynamicKeys":[]}}}}'
+        )
+        Mock Get-FModelSettingsPath { $settingsPath }
+        Mock Get-Process { $null }
+
+        Update-FModelScumAesKey -Key $expectedKey | Should -BeTrue
+
+        $updatedSettings = [System.IO.File]::ReadAllText($settingsPath) | ConvertFrom-Json
+        $updatedSettings.OtherSetting | Should -BeTrue
+        $updatedSettings.PerDirectory.'C:\Games\SCUM'.AesKeys.mainKey |
+            Should -Be $expectedKey
+        (Test-Path -LiteralPath "$settingsPath.skit-backup" -PathType Leaf) |
+            Should -BeTrue
     }
 
     It 'rejects content without a valid SCUM key' {
@@ -480,6 +563,9 @@ Describe 'SCUM AES key discovery' {
 Describe 'SCUM launch modes' {
     BeforeEach {
         Mock Get-ConfiguredScumExecutable { 'C:\Games\SCUM\SCUM.exe' }
+        Mock Read-SKitConfig {
+            [pscustomobject]@{ ScumStartParams = '' }
+        }
         Mock Start-Process {}
     }
 
@@ -508,6 +594,30 @@ Describe 'SCUM launch modes' {
         Assert-MockCalled Start-Process -Times 1 -ParameterFilter {
             $FilePath -eq 'C:\Games\SCUM\SCUM.exe' -and
             $null -eq $ArgumentList
+        }
+    }
+
+    It 'adds custom parameters after the mod arguments' {
+        Mock Read-SKitConfig {
+            [pscustomobject]@{ ScumStartParams = '-windowed -ResX=1920' }
+        }
+
+        Start-Scum -Mode modded
+
+        Assert-MockCalled Start-Process -Times 1 -ParameterFilter {
+            $ArgumentList -join '|' -eq '-fileopenlog|-nobattleye|-windowed -ResX=1920'
+        }
+    }
+
+    It 'uses custom parameters without mod arguments in default mode' {
+        Mock Read-SKitConfig {
+            [pscustomobject]@{ ScumStartParams = '-windowed' }
+        }
+
+        Start-Scum -Mode default
+
+        Assert-MockCalled Start-Process -Times 1 -ParameterFilter {
+            $ArgumentList -join '|' -eq '-windowed'
         }
     }
 }

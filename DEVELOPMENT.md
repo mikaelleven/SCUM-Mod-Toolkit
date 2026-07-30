@@ -38,7 +38,6 @@ The installed structure is:
   skit.cmd
   SCUM-Mod-Toolkit.ps1
   SCUM-Mod-Toolkit.yaml
-  SCUM-AES-Key.txt
   FModel.cmd
   repak.cmd
   UAssetGUI.cmd
@@ -149,10 +148,14 @@ retained as migration backups. Allowed keys:
 ```yaml
 scumPath: 'C:\path\to\SCUM'
 scumExecutable: 'C:\path\to\SCUM\SCUM\Binaries\Win64\SCUM.exe'
+scumAesKey: '0x0000000000000000000000000000000000000000000000000000000000000000'
+scumStartParams: '-windowed'
 ```
 
 `scumExecutable` is optional for older or manually created configurations.
 When it is missing, the path is derived from `scumPath`.
+`scumAesKey` must be empty or contain `0x` followed by exactly 64 hexadecimal
+characters. `scumStartParams` is an optional string passed to SCUM at launch.
 
 `config detect-scum` locates Steam through the registry or default
 installation, reads both older and newer
@@ -163,8 +166,28 @@ installation root and executable path are written to
 
 `config find-key` downloads the documented Games Translator page, removes
 HTML markup, and matches the `SCUM` entry followed by exactly `0x` and 64
-hexadecimal characters. The key is stored by itself in `SCUM-AES-Key.txt`.
-A network failure or a missing or invalid key is a hard error.
+hexadecimal characters. The key is stored by itself in
+`SCUM-AES-Key.txt` in the current directory. A network failure or a missing
+or invalid key is a hard error.
+
+`config get-key` performs the same download and stores the key as
+`scumAesKey` in `SCUM-Mod-Toolkit.yaml`. It then attempts to update the main
+AES key in `%APPDATA%\FModel\AppSettings.json` when:
+
+- FModel is not running;
+- the FModel settings file exists;
+- the settings file contains an existing per-directory entry matching the
+  configured SCUM path.
+
+The first update creates `AppSettings.json.skit-backup`. The JSON is written
+to a temporary file, parsed for validation, and then moved over the settings
+file. A skipped FModel update is informational and does not undo the YAML
+configuration.
+
+`config set-startparams <parameter-string>` stores the complete string as
+`scumStartParams`. An explicitly empty string clears it. Both `play` modes
+append the custom string. The `modded` mode first adds
+`-fileopenlog -nobattleye`; the `default` mode does not.
 
 ## Exclusion patterns
 
@@ -269,8 +292,9 @@ The test suite covers:
 - repak and UAssetGUI arguments;
 - staging with excluded files;
 - Steam library detection and stored SCUM configuration;
-- content-based AES key matching and storage;
-- arguments for modded and default launch modes.
+- content-based AES key matching, text-file output, YAML storage, and guarded
+  FModel settings updates;
+- default and custom arguments for modded and default launch modes.
 
 A release must also be smoke-tested on Windows:
 
@@ -289,7 +313,8 @@ files:
 2. Export a UE 4.27 `.uasset` to JSON.
 3. Import the JSON and open the result.
 4. Run `init`, `build`, `install`, `test`, `config detect-scum`,
-   `config find-key`, and both `play` modes against a test installation.
+   `config find-key`, `config get-key`, `config set-startparams`, and both
+   `play` modes against a test installation.
 
 ## Known limitations
 

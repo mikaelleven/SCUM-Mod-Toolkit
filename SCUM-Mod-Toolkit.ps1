@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.2'
+$script:SKitVersion = '1.1.0.3'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -31,7 +31,7 @@ $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
 $script:GlobalConfigPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'
 $script:PreviousGlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
 $script:LegacyGlobalConfigPath = Join-Path $script:InstallRoot 'skit.config.yml'
-$script:ScumAesKeyPath = Join-Path $script:InstallRoot 'SCUM-AES-Key.txt'
+$script:ScumAesKeyFileName = 'SCUM-AES-Key.txt'
 $script:ScumAesKeyUri = 'https://www.gamestranslator.it/index.php?/forums/topic/1485-raccolta-di-chiavi-di-crittografia-aes-per-giochi-ue45/'
 
 if ($null -eq $Arguments) {
@@ -924,26 +924,38 @@ function Read-SKitConfigFile {
 
         $key = $Matches[1]
         $rawValue = [string]$Matches[2]
-        if ($key -notin @('scumPath', 'scumExecutable')) {
+        if ($key -notin @('scumPath', 'scumExecutable', 'scumAesKey', 'scumStartParams')) {
             throw "$Path line ${lineNumber}: unknown configuration key '$key'."
         }
         if ($values.ContainsKey($key)) {
             throw "$Path line ${lineNumber}: duplicate configuration key '$key'."
         }
-        $values[$key] = ConvertFrom-StrictYamlScalar -Value $rawValue
+        $value = ConvertFrom-StrictYamlScalar -Value $rawValue
+        if ($key -eq 'scumAesKey' -and
+            -not [string]::IsNullOrWhiteSpace($value) -and
+            $value -notmatch '^0x[0-9A-Fa-f]{64}$') {
+            throw "$Path line ${lineNumber}: scumAesKey must be empty or a valid 256-bit AES key."
+        }
+        $values[$key] = $value
     }
 
     return [pscustomobject]@{
         ScumPath         = if ($values.ContainsKey('scumPath')) { [string]$values.scumPath } else { '' }
         ScumExecutable   = if ($values.ContainsKey('scumExecutable')) { [string]$values.scumExecutable } else { '' }
+        ScumAesKey       = if ($values.ContainsKey('scumAesKey')) { [string]$values.scumAesKey } else { '' }
+        ScumStartParams  = if ($values.ContainsKey('scumStartParams')) { [string]$values.scumStartParams } else { '' }
         HasScumPath       = $values.ContainsKey('scumPath')
         HasScumExecutable = $values.ContainsKey('scumExecutable')
+        HasScumAesKey     = $values.ContainsKey('scumAesKey')
+        HasScumStartParams = $values.ContainsKey('scumStartParams')
     }
 }
 
 function Merge-SKitConfig {
     $mergedScumPath = ''
     $mergedScumExecutable = ''
+    $mergedScumAesKey = ''
+    $mergedScumStartParams = ''
     $foundConfig = $false
     $configPaths = @(
         $script:LegacyGlobalConfigPath,
@@ -963,11 +975,19 @@ function Merge-SKitConfig {
         if ($config.HasScumExecutable) {
             $mergedScumExecutable = $config.ScumExecutable
         }
+        if ($config.HasScumAesKey) {
+            $mergedScumAesKey = $config.ScumAesKey
+        }
+        if ($config.HasScumStartParams) {
+            $mergedScumStartParams = $config.ScumStartParams
+        }
     }
 
     return [pscustomobject]@{
         ScumPath       = $mergedScumPath
         ScumExecutable = $mergedScumExecutable
+        ScumAesKey     = $mergedScumAesKey
+        ScumStartParams = $mergedScumStartParams
         FoundConfig    = $foundConfig
     }
 }
@@ -975,13 +995,21 @@ function Merge-SKitConfig {
 function Write-SKitConfig {
     param(
         [AllowEmptyString()][string]$ScumPath = '',
-        [AllowEmptyString()][string]$ScumExecutable = ''
+        [AllowEmptyString()][string]$ScumExecutable = '',
+        [AllowEmptyString()][string]$ScumAesKey = '',
+        [AllowEmptyString()][string]$ScumStartParams = ''
     )
 
+    if (-not [string]::IsNullOrWhiteSpace($ScumAesKey) -and
+        $ScumAesKey -notmatch '^0x[0-9A-Fa-f]{64}$') {
+        throw 'scumAesKey must be empty or a valid 256-bit AES key.'
+    }
     $content = @(
-        '# SCUM paths used by SKit.',
+        '# SCUM settings used by SKit.',
         ('scumPath: ' + (ConvertTo-StrictYamlScalar -Value $ScumPath)),
-        ('scumExecutable: ' + (ConvertTo-StrictYamlScalar -Value $ScumExecutable))
+        ('scumExecutable: ' + (ConvertTo-StrictYamlScalar -Value $ScumExecutable)),
+        ('scumAesKey: ' + (ConvertTo-StrictYamlScalar -Value $ScumAesKey.ToUpperInvariant())),
+        ('scumStartParams: ' + (ConvertTo-StrictYamlScalar -Value $ScumStartParams))
     ) -join "`r`n"
     Write-Utf8File -Path $script:GlobalConfigPath -Content ($content + "`r`n")
 }
@@ -990,7 +1018,9 @@ function Initialize-SKitConfig {
     $config = Merge-SKitConfig
     Write-SKitConfig `
         -ScumPath $config.ScumPath `
-        -ScumExecutable $config.ScumExecutable
+        -ScumExecutable $config.ScumExecutable `
+        -ScumAesKey $config.ScumAesKey `
+        -ScumStartParams $config.ScumStartParams
 }
 
 function Read-SKitConfig {
@@ -1001,6 +1031,8 @@ function Read-SKitConfig {
     return [pscustomobject]@{
         ScumPath       = $config.ScumPath
         ScumExecutable = $config.ScumExecutable
+        ScumAesKey     = $config.ScumAesKey
+        ScumStartParams = $config.ScumStartParams
     }
 }
 
@@ -1012,7 +1044,11 @@ function Set-SKitScumPath {
         throw "SCUM directory not found: $resolvedPath"
     }
 
-    Write-SKitConfig -ScumPath $resolvedPath
+    $config = Merge-SKitConfig
+    Write-SKitConfig `
+        -ScumPath $resolvedPath `
+        -ScumAesKey $config.ScumAesKey `
+        -ScumStartParams $config.ScumStartParams
     Write-Success "SCUM path configured: $resolvedPath"
 }
 
@@ -1034,8 +1070,46 @@ function Set-SKitScumExecutable {
     }
     $scumPath = $resolvedExecutable.Substring(0, $resolvedExecutable.Length - $relativeExecutable.Length).TrimEnd('\')
 
-    Write-SKitConfig -ScumPath $scumPath -ScumExecutable $resolvedExecutable
+    $config = Merge-SKitConfig
+    Write-SKitConfig `
+        -ScumPath $scumPath `
+        -ScumExecutable $resolvedExecutable `
+        -ScumAesKey $config.ScumAesKey `
+        -ScumStartParams $config.ScumStartParams
     Write-Success "SCUM executable configured: $resolvedExecutable"
+}
+
+function Set-SKitStartParameters {
+    param([AllowEmptyString()][string]$StartParameters = '')
+
+    $config = Merge-SKitConfig
+    Write-SKitConfig `
+        -ScumPath $config.ScumPath `
+        -ScumExecutable $config.ScumExecutable `
+        -ScumAesKey $config.ScumAesKey `
+        -ScumStartParams $StartParameters
+
+    if ([string]::IsNullOrWhiteSpace($StartParameters)) {
+        Write-Success 'SCUM custom start parameters cleared.'
+    }
+    else {
+        Write-Success "SCUM custom start parameters configured: $StartParameters"
+    }
+}
+
+function Set-SKitScumAesKey {
+    param([Parameter(Mandatory)][string]$Key)
+
+    if ($Key -notmatch '^0x[0-9A-Fa-f]{64}$') {
+        throw 'The SCUM AES key must contain 0x followed by 64 hexadecimal characters.'
+    }
+    $config = Merge-SKitConfig
+    Write-SKitConfig `
+        -ScumPath $config.ScumPath `
+        -ScumExecutable $config.ScumExecutable `
+        -ScumAesKey $Key `
+        -ScumStartParams $config.ScumStartParams
+    Write-Success "SCUM AES key stored in $script:GlobalConfigPath"
 }
 
 function Get-ConfiguredScumPath {
@@ -1253,7 +1327,7 @@ function Get-ScumAesKeyFromContent {
     return $match.Groups[1].Value.ToUpperInvariant()
 }
 
-function Find-AndSaveScumAesKey {
+function Get-ScumAesKeyFromWeb {
     try {
         $response = Invoke-WebRequest -Uri $script:ScumAesKeyUri -UseBasicParsing
     }
@@ -1261,24 +1335,143 @@ function Find-AndSaveScumAesKey {
         throw "Could not download the SCUM AES key page. $($_.Exception.Message)"
     }
 
-    $key = Get-ScumAesKeyFromContent -Content ([string]$response.Content)
-    [System.IO.Directory]::CreateDirectory($script:InstallRoot) | Out-Null
-    Write-Utf8File -Path $script:ScumAesKeyPath -Content ($key + "`r`n")
-    Write-Success "Saved the SCUM AES key to $script:ScumAesKeyPath"
-    return $script:ScumAesKeyPath
+    return Get-ScumAesKeyFromContent -Content ([string]$response.Content)
+}
+
+function Find-AndSaveScumAesKey {
+    $key = Get-ScumAesKeyFromWeb
+    $outputPath = Join-Path (Get-Location).Path $script:ScumAesKeyFileName
+    Write-Utf8File -Path $outputPath -Content ($key + "`r`n")
+    Write-Success "Saved the SCUM AES key to $outputPath"
+    return $outputPath
+}
+
+function Get-FModelSettingsPath {
+    $appData = [Environment]::GetFolderPath('ApplicationData')
+    return Join-Path $appData 'FModel\AppSettings.json'
+}
+
+function Update-FModelScumAesKey {
+    param([Parameter(Mandatory)][string]$Key)
+
+    if (Get-Process -Name 'FModel' -ErrorAction SilentlyContinue) {
+        Write-Info 'FModel is running. Close it and run skit config get-key again to update FModel.'
+        return $false
+    }
+
+    $settingsPath = Get-FModelSettingsPath
+    if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+        Write-Info 'FModel settings were not found. Start FModel once, close it, and run skit config get-key again.'
+        return $false
+    }
+
+    try {
+        $settings = [System.IO.File]::ReadAllText($settingsPath) | ConvertFrom-Json
+    }
+    catch {
+        Write-Info "FModel settings could not be read; no changes were made. $($_.Exception.Message)"
+        return $false
+    }
+
+    $config = Read-SKitConfig
+    if ([string]::IsNullOrWhiteSpace($config.ScumPath)) {
+        Write-Info 'SCUM is not configured in SKit; the FModel AES key was not updated.'
+        return $false
+    }
+    if ($null -eq $settings.PerDirectory) {
+        Write-Info 'FModel has no per-game settings; the FModel AES key was not updated.'
+        return $false
+    }
+
+    $trimCharacters = [char[]]"\/"
+    $normalizedScumPath = $config.ScumPath.TrimEnd($trimCharacters)
+    $targetEntry = $null
+    foreach ($property in $settings.PerDirectory.PSObject.Properties) {
+        $entryPath = [string]$property.Name
+        if ($null -ne $property.Value -and
+            $null -ne $property.Value.PSObject.Properties['GameDirectory']) {
+            $entryPath = [string]$property.Value.GameDirectory
+        }
+        if ($entryPath.TrimEnd($trimCharacters).Equals(
+                $normalizedScumPath,
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            $targetEntry = $property.Value
+            break
+        }
+    }
+    if ($null -eq $targetEntry) {
+        Write-Info 'FModel has no SCUM game entry. Select SCUM in FModel, close FModel, and run skit config get-key again.'
+        return $false
+    }
+
+    if ($null -eq $targetEntry.PSObject.Properties['AesKeys'] -or
+        $null -eq $targetEntry.AesKeys) {
+        $targetEntry | Add-Member -MemberType NoteProperty -Name AesKeys -Value ([pscustomobject]@{
+            mainKey = $Key
+            dynamicKeys = @()
+        }) -Force
+    }
+    else {
+        $targetEntry.AesKeys |
+            Add-Member -MemberType NoteProperty -Name mainKey -Value $Key -Force
+        if ($null -eq $targetEntry.AesKeys.PSObject.Properties['dynamicKeys']) {
+            $targetEntry.AesKeys |
+                Add-Member -MemberType NoteProperty -Name dynamicKeys -Value @()
+        }
+    }
+
+    $backupPath = "$settingsPath.skit-backup"
+    if (-not (Test-Path -LiteralPath $backupPath)) {
+        Copy-Item -LiteralPath $settingsPath -Destination $backupPath
+    }
+    $temporaryPath = "$settingsPath.skit-$([Guid]::NewGuid().ToString('N')).tmp"
+    try {
+        $updatedJson = $settings | ConvertTo-Json -Depth 100
+        Write-Utf8File -Path $temporaryPath -Content ($updatedJson + "`r`n")
+        [void]([System.IO.File]::ReadAllText($temporaryPath) | ConvertFrom-Json)
+        Move-Item -LiteralPath $temporaryPath -Destination $settingsPath -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath) {
+            Remove-Item -LiteralPath $temporaryPath -Force
+        }
+    }
+
+    Write-Success "Updated the SCUM AES key in FModel settings: $settingsPath"
+    return $true
+}
+
+function Get-AndConfigureScumAesKey {
+    $key = Get-ScumAesKeyFromWeb
+    Set-SKitScumAesKey -Key $key
+    [void](Update-FModelScumAesKey -Key $key)
 }
 
 function Start-Scum {
     param([ValidateSet('modded', 'default')][string]$Mode = 'modded')
 
     $executable = Get-ConfiguredScumExecutable
+    $config = Read-SKitConfig
+    $startArguments = @()
     if ($Mode -eq 'modded') {
-        Start-Process -FilePath $executable -ArgumentList @('-fileopenlog', '-nobattleye')
+        $startArguments += @('-fileopenlog', '-nobattleye')
+    }
+    if (-not [string]::IsNullOrWhiteSpace($config.ScumStartParams)) {
+        $startArguments += $config.ScumStartParams
+    }
+
+    if ($startArguments.Count -gt 0) {
+        Start-Process -FilePath $executable -ArgumentList $startArguments
+    }
+    else {
+        Start-Process -FilePath $executable
+    }
+
+    if ($Mode -eq 'modded') {
         Write-Success 'Started SCUM with mod support.'
         return
     }
-
-    Start-Process -FilePath $executable
     Write-Success 'Started SCUM with default launch settings.'
 }
 
@@ -1315,7 +1508,9 @@ Setup:
   skit self-install                        Reinstall SKit and register user PATH
   skit config <scum-path>                  Configure the SCUM installation root
   skit config detect-scum                  Detect SCUM.exe in Steam libraries
-  skit config find-key                     Download the current SCUM AES key
+  skit config find-key                     Save the current SCUM AES key as a text file
+  skit config get-key                      Store the current SCUM AES key in the configuration
+  skit config set-startparams <parameters> Configure custom SCUM launch parameters
 
 Files:
   skit unpack <file.pak> [output-dir]       Unpack a .pak with repak
@@ -1377,7 +1572,7 @@ function Invoke-SKitCommand {
             }
             'config' {
                 if ($Arguments.Count -lt 1) {
-                    throw 'Usage: skit config <scum-path>|detect-scum|find-key'
+                    throw 'Usage: skit config <scum-path>|detect-scum|find-key|get-key|set-startparams <parameters>'
                 }
                 $configCommand = $Arguments[0].ToLowerInvariant()
                 switch ($configCommand) {
@@ -1386,6 +1581,15 @@ function Invoke-SKitCommand {
                     }
                     'find-key' {
                         [void](Find-AndSaveScumAesKey)
+                    }
+                    'get-key' {
+                        Get-AndConfigureScumAesKey
+                    }
+                    'set-startparams' {
+                        if ($Arguments.Count -lt 2) {
+                            throw 'Usage: skit config set-startparams <parameter-string>'
+                        }
+                        Set-SKitStartParameters -StartParameters ($Arguments[1..($Arguments.Count - 1)] -join ' ')
                     }
                     default {
                         Set-SKitScumPath -ScumPath $Arguments[0]

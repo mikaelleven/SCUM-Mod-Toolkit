@@ -2,6 +2,22 @@
 
 All notable SKit changes are documented in this file.
 
+## 1.1.0.3 - 2026-07-30
+
+### Added
+
+- `skit config get-key` for storing the current SCUM AES key in the global
+  YAML configuration and, when safe, in an existing FModel SCUM entry.
+- `skit config set-startparams <parameter-string>` and the
+  `scumStartParams` setting for custom SCUM launch arguments.
+
+### Changed
+
+- `skit config find-key` now writes `SCUM-AES-Key.txt` to the current
+  directory.
+- Custom launch parameters are appended in both modded and default play
+  modes.
+
 ## 1.1.0.2 - 2026-07-30
 
 ### Changed

@@ -80,7 +80,41 @@ skit config find-key
 
 SKit locates the entry named `SCUM` on the source page regardless of its line
 number, validates that the value is a 256-bit hexadecimal key, and stores it
-in `%LOCALAPPDATA%\Programs\SKit\SCUM-AES-Key.txt`.
+as `SCUM-AES-Key.txt` in the current directory.
+
+To store the key directly in `SCUM-Mod-Toolkit.yaml`, use:
+
+```powershell
+skit config get-key
+```
+
+If FModel has been started before and already has a SCUM game entry, SKit
+also updates the main AES key in FModel. Close FModel before running the
+command. SKit creates `AppSettings.json.skit-backup` before the first update.
+If FModel is unavailable or has no SCUM entry, the key is still stored in
+the SKit configuration.
+
+Custom SCUM launch parameters can be configured from the CLI:
+
+```powershell
+skit config set-startparams "-windowed -ResX=1920 -ResY=1080"
+```
+
+Clear them by passing an empty string:
+
+```powershell
+skit config set-startparams ""
+```
+
+The same values can be edited manually in
+`%LOCALAPPDATA%\Programs\SKit\SCUM-Mod-Toolkit.yaml`:
+
+```yaml
+scumPath: 'D:\SteamLibrary\steamapps\common\SCUM'
+scumExecutable: 'D:\SteamLibrary\steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe'
+scumAesKey: '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+scumStartParams: '-windowed -ResX=1920 -ResY=1080'
+```
 
 ## File commands
 
@@ -174,6 +208,7 @@ skit play default
 - `play` and `play modded` start `SCUM.exe` with
   `-fileopenlog -nobattleye`.
 - `play default` starts `SCUM.exe` without those arguments.
+- Custom parameters from `scumStartParams` are added in both launch modes.
 
 Example of the intentional release flow:
 
