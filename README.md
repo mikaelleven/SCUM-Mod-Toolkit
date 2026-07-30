@@ -121,7 +121,8 @@ When `scumAesKey` is configured, `pack` and `unpack` pass it to repak
 automatically. Use `-o` or `-omit-key` anywhere in either command to run
 repak without the configured key.
 
-`tojson` uses `VER_UE4_27` and creates `Asset.full.json`. A different engine version or mappings file can be specified:
+`tojson` waits for UAssetGUI to finish, uses `VER_UE4_27`, and creates
+`Asset.full.json`. A different engine version or mappings file can be specified:
 
 ```powershell
 skit tojson ".\Asset.uasset" VER_UE4_27 ".\Mappings.usmap"

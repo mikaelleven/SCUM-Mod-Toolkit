@@ -108,7 +108,9 @@ UAssetGUI tojson <source.uasset> <destination.full.json> VER_UE4_27 [mappings]
 UAssetGUI fromjson <source.json> <destination.uasset> [mappings]
 ```
 
-`Invoke-ExternalTool` treats every exit code other than `0` as an error.
+`Invoke-ExternalTool` pipes standard output to the host so Windows PowerShell
+waits for GUI-subsystem executables such as UAssetGUI. It initializes and
+captures `LASTEXITCODE`, and treats every exit code other than `0` as an error.
 The repak AES option is global and must appear before the subcommand. SKit
 adds it when `scumAesKey` is configured unless the SKit-only `-o` or
 `-omit-key` flag is present. repak can read encrypted PAK files but does not

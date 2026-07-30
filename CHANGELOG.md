@@ -2,6 +2,13 @@
 
 All notable SKit changes are documented in this file.
 
+## 1.1.0.7 - 2026-07-30
+
+### Fixed
+
+- Waited for GUI-subsystem command-line tools such as UAssetGUI and safely
+  initialized their exit code before checking it under strict mode.
+
 ## 1.1.0.6 - 2026-07-30
 
 ### Fixed

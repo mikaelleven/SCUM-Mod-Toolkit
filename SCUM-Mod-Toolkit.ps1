@@ -25,7 +25,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.6'
+$script:SKitVersion = '1.1.0.7'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -447,9 +447,11 @@ function Invoke-ExternalTool {
         [Parameter(Mandatory)][string[]]$ToolArguments
     )
 
-    & $Executable @ToolArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "'$Executable' exited with code $LASTEXITCODE."
+    $global:LASTEXITCODE = 0
+    & $Executable @ToolArguments | Out-Host
+    $exitCode = $global:LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "'$Executable' exited with code $exitCode."
     }
 }
 

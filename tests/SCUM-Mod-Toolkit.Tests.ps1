@@ -275,6 +275,24 @@ Describe 'Release asset verification' {
     }
 }
 
+Describe 'External tool execution' {
+    It 'does not fail when an invoked command does not set LASTEXITCODE' {
+        $testScript = Join-Path $TestDrive 'success.ps1'
+        [System.IO.File]::WriteAllText($testScript, "Write-Output 'completed'`r`n")
+        Remove-Variable -Name LASTEXITCODE -Scope Global -ErrorAction SilentlyContinue
+
+        { Invoke-ExternalTool -Executable $testScript -ToolArguments @('ignored') } |
+            Should -Not -Throw
+    }
+
+    It 'throws when an external process returns a nonzero exit code' {
+        $commandProcessor = Join-Path $env:SystemRoot 'System32\cmd.exe'
+
+        { Invoke-ExternalTool -Executable $commandProcessor -ToolArguments @('/c', 'exit', '7') } |
+            Should -Throw '*exited with code 7*'
+    }
+}
+
 Describe 'External command contracts' {
     BeforeEach {
         $script:testAesKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
