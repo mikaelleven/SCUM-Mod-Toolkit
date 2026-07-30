@@ -22,13 +22,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.1'
+$script:SKitVersion = '1.1.0.2'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
 $script:InstallRoot = Join-Path $env:LOCALAPPDATA 'Programs\SKit'
 $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
-$script:GlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
+$script:GlobalConfigPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'
+$script:PreviousGlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
 $script:LegacyGlobalConfigPath = Join-Path $script:InstallRoot 'skit.config.yml'
 $script:ScumAesKeyPath = Join-Path $script:InstallRoot 'SCUM-AES-Key.txt'
 $script:ScumAesKeyUri = 'https://www.gamestranslator.it/index.php?/forums/topic/1485-raccolta-di-chiavi-di-crittografia-aes-per-giochi-ue45/'
@@ -134,26 +135,22 @@ function Install-Self {
     [System.IO.Directory]::CreateDirectory($script:ToolsRoot) | Out-Null
 
     $sourcePath = Resolve-FullPath -Path $PSCommandPath
-    $targetPath = Join-Path $script:InstallRoot 'skit.ps1'
+    $targetPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1'
     if (-not $sourcePath.Equals($targetPath, [StringComparison]::OrdinalIgnoreCase)) {
         Copy-Item -LiteralPath $sourcePath -Destination $targetPath -Force
     }
 
     $launcher = @'
 @echo off
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0skit.ps1" %*
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0SCUM-Mod-Toolkit.ps1" %*
 '@
     Write-Utf8File -Path (Join-Path $script:InstallRoot 'skit.cmd') -Content ($launcher + "`r`n")
 
-    if (-not (Test-Path -LiteralPath $script:GlobalConfigPath) -and
-        -not (Test-Path -LiteralPath $script:LegacyGlobalConfigPath)) {
-        $config = @'
-# Path to the SCUM installation root, for example:
-# C:\Program Files (x86)\Steam\steamapps\common\SCUM
-scumPath: ''
-scumExecutable: ''
-'@
-        Write-Utf8File -Path $script:GlobalConfigPath -Content ($config + "`r`n")
+    Initialize-SKitConfig
+
+    $legacyInstalledScript = Join-Path $script:InstallRoot 'skit.ps1'
+    if (Test-Path -LiteralPath $legacyInstalledScript -PathType Leaf) {
+        Remove-Item -LiteralPath $legacyInstalledScript -Force
     }
 
     Add-InstallRootToUserPath
@@ -161,7 +158,7 @@ scumExecutable: ''
 
 function Ensure-SelfInstalled {
     Assert-Windows
-    $installedScript = Join-Path $script:InstallRoot 'skit.ps1'
+    $installedScript = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1'
     $installedLauncher = Join-Path $script:InstallRoot 'skit.cmd'
     if (-not (Test-Path -LiteralPath $installedScript) -or
         -not (Test-Path -LiteralPath $installedLauncher)) {
@@ -907,45 +904,103 @@ function Invoke-ProjectBuild {
     }
 }
 
-function Read-SKitConfig {
-    $configPath = $script:GlobalConfigPath
-    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf) -and
-        (Test-Path -LiteralPath $script:LegacyGlobalConfigPath -PathType Leaf)) {
-        $configPath = $script:LegacyGlobalConfigPath
-    }
-    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        throw "SKit configuration not found: $script:GlobalConfigPath"
-    }
+function Read-SKitConfigFile {
+    param([Parameter(Mandatory)][string]$Path)
 
     $values = @{}
-    $lines = [System.IO.File]::ReadAllLines($configPath)
+    $lines = [System.IO.File]::ReadAllLines($Path)
     for ($index = 0; $index -lt $lines.Length; $index++) {
         $line = $lines[$index]
         $lineNumber = $index + 1
         if ($line.Contains("`t")) {
-            throw "$configPath line ${lineNumber}: tabs are not allowed."
+            throw "$Path line ${lineNumber}: tabs are not allowed."
         }
         if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('#')) {
             continue
         }
         if ($line.StartsWith(' ') -or $line -notmatch '^([A-Za-z][A-Za-z0-9_-]*):(?:\s*(.*))?$') {
-            throw "$configPath line ${lineNumber}: invalid strict YAML syntax."
+            throw "$Path line ${lineNumber}: invalid strict YAML syntax."
         }
 
         $key = $Matches[1]
         $rawValue = [string]$Matches[2]
         if ($key -notin @('scumPath', 'scumExecutable')) {
-            throw "$configPath line ${lineNumber}: unknown configuration key '$key'."
+            throw "$Path line ${lineNumber}: unknown configuration key '$key'."
         }
         if ($values.ContainsKey($key)) {
-            throw "$configPath line ${lineNumber}: duplicate configuration key '$key'."
+            throw "$Path line ${lineNumber}: duplicate configuration key '$key'."
         }
         $values[$key] = ConvertFrom-StrictYamlScalar -Value $rawValue
     }
 
     return [pscustomobject]@{
-        ScumPath       = if ($values.ContainsKey('scumPath')) { [string]$values.scumPath } else { '' }
-        ScumExecutable = if ($values.ContainsKey('scumExecutable')) { [string]$values.scumExecutable } else { '' }
+        ScumPath         = if ($values.ContainsKey('scumPath')) { [string]$values.scumPath } else { '' }
+        ScumExecutable   = if ($values.ContainsKey('scumExecutable')) { [string]$values.scumExecutable } else { '' }
+        HasScumPath       = $values.ContainsKey('scumPath')
+        HasScumExecutable = $values.ContainsKey('scumExecutable')
+    }
+}
+
+function Merge-SKitConfig {
+    $mergedScumPath = ''
+    $mergedScumExecutable = ''
+    $foundConfig = $false
+    $configPaths = @(
+        $script:LegacyGlobalConfigPath,
+        $script:PreviousGlobalConfigPath,
+        $script:GlobalConfigPath
+    )
+
+    foreach ($configPath in $configPaths) {
+        if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+            continue
+        }
+        $foundConfig = $true
+        $config = Read-SKitConfigFile -Path $configPath
+        if ($config.HasScumPath) {
+            $mergedScumPath = $config.ScumPath
+        }
+        if ($config.HasScumExecutable) {
+            $mergedScumExecutable = $config.ScumExecutable
+        }
+    }
+
+    return [pscustomobject]@{
+        ScumPath       = $mergedScumPath
+        ScumExecutable = $mergedScumExecutable
+        FoundConfig    = $foundConfig
+    }
+}
+
+function Write-SKitConfig {
+    param(
+        [AllowEmptyString()][string]$ScumPath = '',
+        [AllowEmptyString()][string]$ScumExecutable = ''
+    )
+
+    $content = @(
+        '# SCUM paths used by SKit.',
+        ('scumPath: ' + (ConvertTo-StrictYamlScalar -Value $ScumPath)),
+        ('scumExecutable: ' + (ConvertTo-StrictYamlScalar -Value $ScumExecutable))
+    ) -join "`r`n"
+    Write-Utf8File -Path $script:GlobalConfigPath -Content ($content + "`r`n")
+}
+
+function Initialize-SKitConfig {
+    $config = Merge-SKitConfig
+    Write-SKitConfig `
+        -ScumPath $config.ScumPath `
+        -ScumExecutable $config.ScumExecutable
+}
+
+function Read-SKitConfig {
+    $config = Merge-SKitConfig
+    if (-not $config.FoundConfig) {
+        throw "SKit configuration not found: $script:GlobalConfigPath"
+    }
+    return [pscustomobject]@{
+        ScumPath       = $config.ScumPath
+        ScumExecutable = $config.ScumExecutable
     }
 }
 
@@ -957,12 +1012,7 @@ function Set-SKitScumPath {
         throw "SCUM directory not found: $resolvedPath"
     }
 
-    $content = @(
-        '# Path to the SCUM installation root.',
-        ('scumPath: ' + (ConvertTo-StrictYamlScalar -Value $resolvedPath)),
-        "scumExecutable: ''"
-    ) -join "`r`n"
-    Write-Utf8File -Path $script:GlobalConfigPath -Content ($content + "`r`n")
+    Write-SKitConfig -ScumPath $resolvedPath
     Write-Success "SCUM path configured: $resolvedPath"
 }
 
@@ -984,19 +1034,14 @@ function Set-SKitScumExecutable {
     }
     $scumPath = $resolvedExecutable.Substring(0, $resolvedExecutable.Length - $relativeExecutable.Length).TrimEnd('\')
 
-    $content = @(
-        '# Paths detected from the Steam library.',
-        ('scumPath: ' + (ConvertTo-StrictYamlScalar -Value $scumPath)),
-        ('scumExecutable: ' + (ConvertTo-StrictYamlScalar -Value $resolvedExecutable))
-    ) -join "`r`n"
-    Write-Utf8File -Path $script:GlobalConfigPath -Content ($content + "`r`n")
+    Write-SKitConfig -ScumPath $scumPath -ScumExecutable $resolvedExecutable
     Write-Success "SCUM executable configured: $resolvedExecutable"
 }
 
 function Get-ConfiguredScumPath {
     $config = Read-SKitConfig
     if ([string]::IsNullOrWhiteSpace($config.ScumPath)) {
-        throw "SCUM path is not configured. Run: skit config `"C:\path\to\SCUM`""
+        throw 'SCUM path is not configured. Run: skit config detect-scum'
     }
     return Resolve-FullPath -Path $config.ScumPath
 }

@@ -36,8 +36,8 @@ The installed structure is:
 ```text
 %LOCALAPPDATA%\Programs\SKit\
   skit.cmd
-  skit.ps1
-  SKit.yaml
+  SCUM-Mod-Toolkit.ps1
+  SCUM-Mod-Toolkit.yaml
   SCUM-AES-Key.txt
   FModel.cmd
   repak.cmd
@@ -59,10 +59,12 @@ The script can be used in two ways:
 
 During normal execution, `Ensure-SelfInstalled` runs before the command:
 
-- If `skit.ps1` or `skit.cmd` is missing, SKit installs itself automatically.
+- If `SCUM-Mod-Toolkit.ps1` or `skit.cmd` is missing, SKit installs itself
+  automatically.
 - If both files exist, the installed copy is left unchanged.
 - `self-install` explicitly runs `Install-Self` and updates the installed
   copy.
+- A successful self-install removes the obsolete installed `skit.ps1`.
 
 All CLI-level errors are caught, written as `[SKit] ERROR: <message>`, and
 return exit code `1`.
@@ -133,9 +135,16 @@ double quotes, and restricted plain scalars. It rejects:
 Backward compatibility for this format must be preserved. When adding a new
 key, update the parser, serializer, documentation, and tests together.
 
-Global configuration is written to `SKit.yaml`. An existing
-`skit.config.yml` is read as a backward-compatible fallback when the new file
-does not exist. Allowed keys:
+Global configuration is written to `SCUM-Mod-Toolkit.yaml`. During
+self-installation, configuration is merged in this order:
+
+1. `skit.config.yml`;
+2. `SKit.yaml`;
+3. `SCUM-Mod-Toolkit.yaml`.
+
+Later files take precedence per key, including an explicitly empty value.
+The merged result is written to `SCUM-Mod-Toolkit.yaml`; legacy files are
+retained as migration backups. Allowed keys:
 
 ```yaml
 scumPath: 'C:\path\to\SCUM'
@@ -149,7 +158,8 @@ When it is missing, the path is derived from `scumPath`.
 installation, reads both older and newer
 `steamapps\libraryfolders.vdf` formats, and searches each library for
 `steamapps\common\SCUM\SCUM\Binaries\Win64\SCUM.exe`. The detected
-installation root and executable path are written to `SKit.yaml`.
+installation root and executable path are written to
+`SCUM-Mod-Toolkit.yaml`.
 
 `config find-key` downloads the documented Games Translator page, removes
 HTML markup, and matches the `SCUM` entry followed by exactly `0x` and 64

@@ -308,12 +308,16 @@ Describe 'External command contracts' {
 Describe 'Global SKit configuration' {
     BeforeEach {
         $script:originalInstallRoot = $script:InstallRoot
+        $script:originalToolsRoot = $script:ToolsRoot
         $script:originalGlobalConfigPath = $script:GlobalConfigPath
+        $script:originalPreviousGlobalConfigPath = $script:PreviousGlobalConfigPath
         $script:originalLegacyGlobalConfigPath = $script:LegacyGlobalConfigPath
         $script:originalScumAesKeyPath = $script:ScumAesKeyPath
 
         $script:InstallRoot = Join-Path $TestDrive 'SKit'
-        $script:GlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
+        $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
+        $script:GlobalConfigPath = Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'
+        $script:PreviousGlobalConfigPath = Join-Path $script:InstallRoot 'SKit.yaml'
         $script:LegacyGlobalConfigPath = Join-Path $script:InstallRoot 'skit.config.yml'
         $script:ScumAesKeyPath = Join-Path $script:InstallRoot 'SCUM-AES-Key.txt'
         [void][System.IO.Directory]::CreateDirectory($script:InstallRoot)
@@ -321,12 +325,14 @@ Describe 'Global SKit configuration' {
 
     AfterEach {
         $script:InstallRoot = $script:originalInstallRoot
+        $script:ToolsRoot = $script:originalToolsRoot
         $script:GlobalConfigPath = $script:originalGlobalConfigPath
+        $script:PreviousGlobalConfigPath = $script:originalPreviousGlobalConfigPath
         $script:LegacyGlobalConfigPath = $script:originalLegacyGlobalConfigPath
         $script:ScumAesKeyPath = $script:originalScumAesKeyPath
     }
 
-    It 'reads the legacy configuration when SKit.yaml does not exist' {
+    It 'reads the legacy configuration when the current file does not exist' {
         [System.IO.File]::WriteAllText(
             $script:LegacyGlobalConfigPath,
             "scumPath: 'C:\Games\SCUM'`r`n"
@@ -338,7 +344,41 @@ Describe 'Global SKit configuration' {
         $config.ScumExecutable | Should -Be ''
     }
 
-    It 'stores the detected executable and installation root in SKit.yaml' {
+    It 'merges legacy configuration files into SCUM-Mod-Toolkit.yaml' {
+        [System.IO.File]::WriteAllText(
+            $script:LegacyGlobalConfigPath,
+            "scumPath: 'C:\Legacy\SCUM'`r`nscumExecutable: 'C:\Legacy\SCUM.exe'`r`n"
+        )
+        [System.IO.File]::WriteAllText(
+            $script:PreviousGlobalConfigPath,
+            "scumExecutable: 'D:\Steam\SCUM.exe'`r`n"
+        )
+
+        Initialize-SKitConfig
+        $config = Read-SKitConfigFile -Path $script:GlobalConfigPath
+
+        $config.ScumPath | Should -Be 'C:\Legacy\SCUM'
+        $config.ScumExecutable | Should -Be 'D:\Steam\SCUM.exe'
+    }
+
+    It 'uses the current configuration value when the same key exists in every file' {
+        [System.IO.File]::WriteAllText(
+            $script:LegacyGlobalConfigPath,
+            "scumPath: 'C:\Legacy'`r`n"
+        )
+        [System.IO.File]::WriteAllText(
+            $script:PreviousGlobalConfigPath,
+            "scumPath: 'C:\Previous'`r`n"
+        )
+        [System.IO.File]::WriteAllText(
+            $script:GlobalConfigPath,
+            "scumPath: 'C:\Current'`r`n"
+        )
+
+        (Read-SKitConfig).ScumPath | Should -Be 'C:\Current'
+    }
+
+    It 'stores the detected executable and installation root in SCUM-Mod-Toolkit.yaml' {
         $scumRoot = Join-Path $TestDrive 'SteamLibrary\steamapps\common\SCUM'
         $executable = Join-Path $scumRoot 'SCUM\Binaries\Win64\SCUM.exe'
         [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $executable))
@@ -350,6 +390,27 @@ Describe 'Global SKit configuration' {
         $config.ScumPath | Should -Be $scumRoot
         $config.ScumExecutable | Should -Be $executable
         (Test-Path -LiteralPath $script:GlobalConfigPath -PathType Leaf) | Should -BeTrue
+    }
+
+    It 'suggests automatic detection when the SCUM path is empty' {
+        Write-SKitConfig
+
+        { Get-ConfiguredScumPath } |
+            Should -Throw '*Run: skit config detect-scum*'
+    }
+
+    It 'installs the renamed script and removes the legacy installed script' {
+        $legacyInstalledScript = Join-Path $script:InstallRoot 'skit.ps1'
+        [System.IO.File]::WriteAllText($legacyInstalledScript, 'legacy')
+        Mock Add-InstallRootToUserPath {}
+
+        Install-Self
+
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1')) |
+            Should -BeTrue
+        (Test-Path -LiteralPath $legacyInstalledScript) | Should -BeFalse
+        [System.IO.File]::ReadAllText((Join-Path $script:InstallRoot 'skit.cmd')) |
+            Should -Match 'SCUM-Mod-Toolkit\.ps1'
     }
 }
 

@@ -2,12 +2,18 @@
 
 All notable SKit changes are documented in this file.
 
-## Unreleased
+## 1.1.0.2 - 2026-07-30
 
 ### Changed
 
 - Standardized the README, development guide, Codex handoff, and repository
   instructions in English.
+- Renamed the installed script to `SCUM-Mod-Toolkit.ps1` and the global
+  configuration to `SCUM-Mod-Toolkit.yaml`.
+- Added ordered migration of `skit.config.yml` and `SKit.yaml` values into
+  the new global configuration file.
+- Changed the missing SCUM path error to recommend
+  `skit config detect-scum`.
 
 ## 1.1.0.1 - 2026-07-30
 

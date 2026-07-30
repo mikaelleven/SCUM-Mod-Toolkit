@@ -41,6 +41,8 @@ SKit is installed in:
 The directory is added to the user `PATH`. If SKit is not already installed,
 running `SCUM-Mod-Toolkit.ps1` directly also performs an initial
 self-installation. Run `self-install` again to update the installed copy.
+The installed script keeps the name `SCUM-Mod-Toolkit.ps1`, and `skit.cmd`
+launches that file.
 
 Every downloaded release asset is verified against the SHA-256 value in the
 GitHub release metadata. Installation stops if a valid SHA-256 value is
@@ -61,11 +63,14 @@ skit config "D:\SteamLibrary\steamapps\common\SCUM"
 The setting is stored in:
 
 ```text
-%LOCALAPPDATA%\Programs\SKit\SKit.yaml
+%LOCALAPPDATA%\Programs\SKit\SCUM-Mod-Toolkit.yaml
 ```
 
-The legacy `skit.config.yml` file is still read when `SKit.yaml` does not
-exist.
+During installation, values from legacy `skit.config.yml` and `SKit.yaml`
+files are merged into `SCUM-Mod-Toolkit.yaml`. Values in `SKit.yaml` take
+precedence over `skit.config.yml`, and values already present in
+`SCUM-Mod-Toolkit.yaml` take final precedence. The legacy files are retained
+as migration backups.
 
 Download the current AES key for SCUM:
 

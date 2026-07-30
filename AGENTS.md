@@ -17,8 +17,8 @@ security checks, and external-tool arguments as compatibility contracts.
 - Keep `SCUM-Mod-Toolkit.ps1` dot-sourceable. Dot-sourcing must define
   functions without installing SKit, mutating PATH, starting processes, or
   dispatching a command.
-- Preserve compatibility with existing `skit.yml` and `skit.config.yml`
-  files unless a migration is explicitly requested.
+- Preserve compatibility with existing `skit.yml`, `skit.config.yml`, and
+  `SKit.yaml` files unless a migration is explicitly requested.
 
 ## Code and documentation
 
