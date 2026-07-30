@@ -2,6 +2,16 @@
 
 All notable SKit changes are documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Removed contributor-only document ordering and test instructions from the
+  end-user README. Development guidance remains in `AGENTS.md` and
+  `DEVELOPMENT.md`.
+- Removed the redundant `CODEX-HANDOFF.md`; its permanent rules and technical
+  guidance are already covered by `AGENTS.md` and `DEVELOPMENT.md`.
+
 ## 1.1.0.5 - 2026-07-30
 
 ### Added

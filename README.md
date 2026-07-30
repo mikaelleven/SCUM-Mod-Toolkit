@@ -216,21 +216,6 @@ skit setup tools uassetgui
 
 After installation, `FModel`, `repak`, and `UAssetGUI` can be started directly from a new terminal.
 
-## Development
-
-Read the documents in this order:
-
-1. `AGENTS.md` - permanent Codex rules.
-2. `DEVELOPMENT.md` - architecture, contracts, and test matrix.
-3. `CODEX-HANDOFF.md` - reusable instructions for a new Codex session.
-4. `CHANGELOG.md` - version history.
-
-Run tests with Pester 5:
-
-```powershell
-.\tests\Run-Tests.ps1
-```
-
 ## License and third-party software
 
 SCUM Mod Toolkit is available under the [MIT License](LICENSE).

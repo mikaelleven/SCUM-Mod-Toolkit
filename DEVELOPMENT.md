@@ -24,7 +24,6 @@ skit.cmd                   Local launcher for the PowerShell script
 README.md                  User guide
 AGENTS.md                  Permanent Codex rules
 DEVELOPMENT.md             Technical architecture and contracts
-CODEX-HANDOFF.md           Reusable Codex handoff instructions
 CHANGELOG.md               Version history
 LICENSE                    MIT license for SKit
 THIRD-PARTY-NOTICES.md     External tool licenses and distribution notices
