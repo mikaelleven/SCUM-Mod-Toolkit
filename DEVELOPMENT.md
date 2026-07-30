@@ -20,6 +20,7 @@ manager.
 
 ```text
 SCUM-Mod-Toolkit.ps1       Complete runtime implementation
+Install-SKit.ps1           Verified GitHub release bootstrap installer
 skit.cmd                   Local launcher for the PowerShell script
 README.md                  User guide
 AGENTS.md                  Permanent Codex rules
@@ -69,6 +70,34 @@ During normal execution, `Ensure-SelfInstalled` runs before the command:
 
 All CLI-level errors are caught, written as `[SKit] ERROR: <message>`, and
 return exit code `1`.
+
+## Bootstrap installation
+
+`Install-SKit.ps1` is the public bootstrap entry point for:
+
+```powershell
+irm https://raw.githubusercontent.com/w33zl/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
+```
+
+The repository is configured in `$script:SKitInstallerRepository`. Update
+that value and the README URL together if the published GitHub owner,
+repository name, or default branch changes.
+
+The bootstrap installer retrieves `releases/latest` through the versioned
+GitHub API `2026-03-10`. It accepts only a release asset named
+`SCUM-Mod-Toolkit-<version>.zip`, matching the release tag without a leading
+`v`, or the fallback name `SCUM-Mod-Toolkit.zip`. The asset must provide a
+valid `sha256:<64 hexadecimal characters>` digest in GitHub release metadata.
+The downloaded size is checked when present, and the local SHA-256 must match
+before extraction.
+
+The verified archive must contain exactly one `SCUM-Mod-Toolkit.ps1` plus
+`LICENSE` and `THIRD-PARTY-NOTICES.md` beside it. The installer runs
+`setup self` in Windows PowerShell with a one-time process-level execution
+policy bypass, verifies the installed launcher with `skit version`, adds the
+installation directory to the current process `PATH`, and removes its
+validated temporary directory. It never changes the `CurrentUser` or
+`LocalMachine` execution policy.
 
 ## External tools
 
@@ -303,6 +332,8 @@ Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser
 The test suite covers:
 
 - PowerShell parser errors;
+- bootstrap release selection, SHA-256 verification, and current-session PATH
+  refresh;
 - version parsing and all bump rules;
 - release order;
 - strict YAML, required keys, and invalid constructs;
@@ -357,7 +388,11 @@ files:
 5. Increment `$script:SKitVersion` according to SemVer for the tool itself.
 6. Confirm that `skit version` displays the same version.
 7. Create a ZIP with root directory `SCUM-Mod-Toolkit-<version>`.
-8. Inspect the ZIP and confirm that it includes `LICENSE` and
+8. Upload the ZIP as `SCUM-Mod-Toolkit-<version>.zip` and confirm that the
+   GitHub release API reports its SHA-256 digest.
+9. Inspect the ZIP and confirm that it includes `LICENSE` and
    `THIRD-PARTY-NOTICES.md` but no third-party binaries, game files, AES
    keys, configuration files, or generated mod content.
-9. Document what was verified and what still requires real-world testing.
+10. Run the published `irm ... | iex` command in a clean Windows PowerShell
+    5.1 session.
+11. Document what was verified and what still requires real-world testing.

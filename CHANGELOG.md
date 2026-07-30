@@ -2,6 +2,14 @@
 
 All notable SKit changes are documented in this file.
 
+## Unreleased
+
+### Added
+
+- Added `Install-SKit.ps1` for `irm <URL> | iex` installation from the latest
+  GitHub release with mandatory SHA-256 verification, self-installation,
+  current-session PATH refresh, and post-installation version verification.
+
 ## 1.1.0.7 - 2026-07-30
 
 ### Fixed

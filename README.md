@@ -15,7 +15,36 @@ SKit downloads external tools but does not install their runtime dependencies.
 
 ## Installation
 
-Extract the files and run:
+The recommended installation method is the PowerShell bootstrap script:
+
+```powershell
+irm https://raw.githubusercontent.com/w33zl/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
+```
+
+Review `Install-SKit.ps1` before running the command. The bootstrap installer
+downloads the latest published SKit release, requires a valid SHA-256 digest
+from GitHub release metadata, verifies the downloaded archive, and installs
+SKit below `%LOCALAPPDATA%\Programs\SKit`. It uses an execution-policy bypass
+only for the current installer processes and does not permanently weaken the
+user or machine policy.
+
+The latest GitHub release must contain either
+`SCUM-Mod-Toolkit-<version>.zip`, matching its release tag, or
+`SCUM-Mod-Toolkit.zip`. The release asset must include GitHub's
+`sha256:<64 hex characters>` digest metadata.
+
+After installation, the bootstrap script verifies `skit version` and reloads
+the SKit directory into `PATH` for the current PowerShell session. If the
+command is still unavailable because of a system-managed policy or
+environment restriction, open a new PowerShell terminal and run:
+
+```powershell
+skit version
+```
+
+The command should print the installed four-part SKit version.
+
+For a manual installation, extract the release files and run:
 
 ```powershell
 Unblock-File -LiteralPath .\SCUM-Mod-Toolkit.ps1
