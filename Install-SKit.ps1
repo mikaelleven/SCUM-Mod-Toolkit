@@ -21,7 +21,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 # Update this value if the published repository uses a different owner or name.
-$script:SKitInstallerRepository = 'w33zl/SCUM-Mod-Toolkit'
+$script:SKitInstallerRepository = 'mikaelleven/SCUM-Mod-Toolkit'
 $script:SKitInstallerGitHubApiVersion = '2026-03-10'
 $script:SKitInstallerInstallRoot = Join-Path $env:LOCALAPPDATA 'Programs\SKit'
 

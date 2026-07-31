@@ -4,6 +4,9 @@ SKit is a PowerShell tool for Windows that installs and provides FModel,
 repak, and UAssetGUI through the `skit` command. It also includes a simple
 project workflow for building, installing, and testing SCUM mods.
 
+<img width="1850" height="1014" alt="image" src="https://github.com/user-attachments/assets/bf7a45bb-36a6-42e0-bc12-879007dedcb8" />
+
+
 ## Requirements
 
 - Windows 10+
@@ -103,6 +106,10 @@ must locate that key yourself and enter it as `scumAesKey` in the global
 configuration. SKit expects `0x` followed by 64 hexadecimal characters and
 normalizes the value before passing it to repak. SKit does not provide or
 document where to obtain it.
+
+`skit setup get-key` can be run before configuring the SCUM installation
+path. When FModel already contains a SCUM game entry, SKit also updates that
+entry's AES key without requiring `scumPath`.
 
 Open the global YAML configuration in the default associated editor:
 

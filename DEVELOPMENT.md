@@ -85,7 +85,7 @@ return exit code `1`.
 `Install-SKit.ps1` is the public bootstrap entry point for:
 
 ```powershell
-irm https://raw.githubusercontent.com/w33zl/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
+irm https://raw.githubusercontent.com/mikaelleven/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
 ```
 
 The repository is configured in `$script:SKitInstallerRepository`. Update
@@ -239,6 +239,10 @@ installation root and executable path are written to
 configuration merge when it is missing. It first asks Windows to open the
 file through its YAML association and falls back to `notepad.exe` if that
 fails.
+
+`setup get-key` stores the downloaded key even when `scumPath` is empty. For
+an existing FModel SCUM entry, SKit identifies the entry by its `GameName`
+when a configured SCUM path is unavailable and updates only its AES key.
 
 `setup help` is dispatched separately from the main help and lists only
 setup commands. The former top-level `tools`, `self-install`, and `config`
