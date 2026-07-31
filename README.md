@@ -37,9 +37,17 @@ The latest GitHub release must contain either
 `sha256:<64 hex characters>` digest metadata.
 
 After installation, the bootstrap script verifies `skit version` and reloads
-the SKit directory into `PATH` for the current PowerShell session. If the
-command is still unavailable because of a system-managed policy or
-environment restriction, open a new PowerShell terminal and run:
+the SKit directory into `PATH` for the current PowerShell session. SKit
+registers its directory in the user `PATH`, which normally does not require
+administrator rights. If registration is blocked by a managed profile or
+environment restriction, installation still succeeds and shows a warning.
+Retry it later with:
+
+```powershell
+skit setup register-path
+```
+
+If the command is still unavailable, open a new PowerShell terminal and run:
 
 ```powershell
 skit version
@@ -112,6 +120,24 @@ Show all setup commands:
 ```powershell
 skit setup help
 ```
+
+To uninstall SKit, including its installed scripts, command files, and tools,
+while keeping the YAML configuration files:
+
+```powershell
+skit setup uninstall
+```
+
+SKit confirms that the YAML configuration files were kept. To remove those
+files too, use the following command and confirm the Y/N prompt:
+
+```powershell
+skit setup uninstall all
+```
+
+Uninstallation removes only files below `%LOCALAPPDATA%\Programs\SKit` and
+does not remove other applications' configuration files, such as FModel
+settings.
 
 Custom SCUM launch parameters can be configured from the CLI:
 

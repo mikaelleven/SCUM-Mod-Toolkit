@@ -138,6 +138,23 @@ Describe 'SKit bootstrap installation verification' {
         }
     }
 
+    It 'rejects self-installation output that is not an exit code' {
+        $releaseRoot = Join-Path $TestDrive 'invalid-exit-code\SCUM-Mod-Toolkit-1.2.3.4'
+        $archivePath = Join-Path $TestDrive 'invalid-exit-code.zip'
+        $extractPath = Join-Path $TestDrive 'invalid-exit-code-output'
+        [System.IO.Directory]::CreateDirectory($releaseRoot) | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $releaseRoot 'SCUM-Mod-Toolkit.ps1'), '# test toolkit')
+        [System.IO.File]::WriteAllText((Join-Path $releaseRoot 'LICENSE'), 'MIT')
+        [System.IO.File]::WriteAllText((Join-Path $releaseRoot 'THIRD-PARTY-NOTICES.md'), 'Notices')
+        Compress-Archive -LiteralPath $releaseRoot -DestinationPath $archivePath
+        Mock Enable-SKitInstallerProcessExecution {}
+        Mock Invoke-SKitInstallerPowerShell { Write-Output 'unexpected output'; return 0 }
+
+        {
+            Install-SKitInstallerRelease -ArchivePath $archivePath -ExtractPath $extractPath
+        } | Should -Throw '*valid process exit code*'
+    }
+
     It 'adds the installation directory to the current PATH only once' {
         $originalPath = $env:Path
         try {

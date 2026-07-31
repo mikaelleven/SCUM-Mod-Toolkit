@@ -197,14 +197,19 @@ function Invoke-SKitInstallerPowerShell {
         throw "Windows PowerShell 5.1 was not found at '$powershellPath'."
     }
 
-    & $powershellPath `
+    $childOutput = @(& $powershellPath `
         -NoLogo `
         -NoProfile `
         -ExecutionPolicy Bypass `
         -File $ScriptPath `
-        setup self
+        setup self)
 
-    return $LASTEXITCODE
+    $exitCode = $LASTEXITCODE
+    foreach ($line in $childOutput) {
+        Write-Host $line
+    }
+
+    return $exitCode
 }
 
 function Install-SKitInstallerRelease {
@@ -234,7 +239,11 @@ function Install-SKitInstallerRelease {
     }
 
     Enable-SKitInstallerProcessExecution -ScriptPath $scripts[0].FullName
-    $exitCode = Invoke-SKitInstallerPowerShell -ScriptPath $scripts[0].FullName
+    $exitCode = @(Invoke-SKitInstallerPowerShell -ScriptPath $scripts[0].FullName)
+    if ($exitCode.Count -ne 1 -or $exitCode[0] -isnot [int]) {
+        throw 'SKit self-installation did not return a valid process exit code.'
+    }
+    $exitCode = [int]$exitCode[0]
     if ($exitCode -ne 0) {
         throw "SKit self-installation failed with exit code $exitCode."
     }

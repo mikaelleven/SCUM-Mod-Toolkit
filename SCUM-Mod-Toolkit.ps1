@@ -25,7 +25,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.7'
+$script:SKitVersion = '1.1.0.9'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -99,36 +99,125 @@ function Write-CommandShim {
 }
 
 function Add-InstallRootToUserPath {
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @()
-    if (-not [string]::IsNullOrWhiteSpace($userPath)) {
-        $entries = @($userPath.Split(';') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    }
-
     $normalizedInstallRoot = $script:InstallRoot.TrimEnd('\')
-    $alreadyRegistered = $false
-    foreach ($entry in $entries) {
-        $expandedEntry = [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\')
-        if ($expandedEntry.Equals($normalizedInstallRoot, [StringComparison]::OrdinalIgnoreCase)) {
-            $alreadyRegistered = $true
-            break
+    try {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $entries = @()
+        if (-not [string]::IsNullOrWhiteSpace($userPath)) {
+            $entries = @($userPath.Split(';') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $alreadyRegistered = $false
+        foreach ($entry in $entries) {
+            $expandedEntry = [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\')
+            if ($expandedEntry.Equals($normalizedInstallRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                $alreadyRegistered = $true
+                break
+            }
+        }
+
+        if (-not $alreadyRegistered) {
+            $newUserPath = (@($entries) + $script:InstallRoot) -join ';'
+            [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+            Write-Info 'Added the SKit directory to the user PATH.'
         }
     }
-
-    if (-not $alreadyRegistered) {
-        $newUserPath = (@($entries) + $script:InstallRoot) -join ';'
-        [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
-        Write-Info 'Added the SKit directory to the user PATH.'
+    catch {
+        Write-Warning "Could not register the SKit directory in the user PATH. Run 'skit setup register-path' later. $($_.Exception.Message)"
+        return $false
     }
 
-    $processEntries = @($env:Path.Split(';'))
+    $processEntries = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:Path)) {
+        $processEntries = @($env:Path.Split(';'))
+    }
     if (-not ($processEntries | Where-Object {
                 ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')).Equals(
                     $normalizedInstallRoot,
                     [StringComparison]::OrdinalIgnoreCase
                 )
             })) {
-        $env:Path = "$env:Path;$script:InstallRoot"
+        $env:Path = if ([string]::IsNullOrWhiteSpace($env:Path)) {
+            $script:InstallRoot
+        }
+        else {
+            "$env:Path;$script:InstallRoot"
+        }
+    }
+    return $true
+}
+
+function Remove-InstallRootFromUserPath {
+    $normalizedInstallRoot = $script:InstallRoot.TrimEnd('\')
+    try {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        if ([string]::IsNullOrWhiteSpace($userPath)) {
+            return
+        }
+
+        $entries = @($userPath.Split(';') | Where-Object {
+                -not [string]::IsNullOrWhiteSpace($_) -and
+                -not ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')).Equals(
+                    $normalizedInstallRoot,
+                    [StringComparison]::OrdinalIgnoreCase
+                )
+            })
+        [Environment]::SetEnvironmentVariable('Path', ($entries -join ';'), 'User')
+    }
+    catch {
+        Write-Warning "Could not remove the SKit directory from the user PATH. $($_.Exception.Message)"
+    }
+}
+
+function Uninstall-SKit {
+    param([switch]$RemoveConfiguration)
+
+    Assert-Windows
+    $installRoot = [System.IO.Path]::GetFullPath($script:InstallRoot)
+    if (-not (Test-Path -LiteralPath $installRoot -PathType Container)) {
+        Write-Info "SKit is not installed in $installRoot."
+        return
+    }
+
+    $configurationFiles = @(
+        Get-ChildItem -LiteralPath $installRoot -File -ErrorAction Stop |
+            Where-Object { $_.Extension -in @('.yaml', '.yml') }
+    )
+    if ($RemoveConfiguration -and $configurationFiles.Count -gt 0) {
+        $confirmation = Read-Host 'Remove SKit YAML configuration files? Type Y to continue'
+        if (-not ([string]$confirmation).Equals('Y', [StringComparison]::OrdinalIgnoreCase)) {
+            Write-Info 'Uninstallation cancelled. SKit files were not removed.'
+            return
+        }
+    }
+
+    $toolsRoot = [System.IO.Path]::GetFullPath($script:ToolsRoot)
+    $expectedToolsRoot = Join-Path $installRoot 'tools'
+    if (-not $toolsRoot.Equals($expectedToolsRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove an unexpected tools directory: $toolsRoot"
+    }
+    if (Test-Path -LiteralPath $toolsRoot -PathType Container) {
+        Remove-Item -LiteralPath $toolsRoot -Recurse -Force
+    }
+
+    foreach ($file in @(Get-ChildItem -LiteralPath $installRoot -File -ErrorAction Stop)) {
+        if (-not $RemoveConfiguration -and $file.Extension -in @('.yaml', '.yml')) {
+            continue
+        }
+        Remove-Item -LiteralPath $file.FullName -Force
+    }
+
+    Remove-InstallRootFromUserPath
+    if ($RemoveConfiguration) {
+        if ((Test-Path -LiteralPath $installRoot -PathType Container) -and
+            -not (Get-ChildItem -LiteralPath $installRoot -Force | Select-Object -First 1)) {
+            Remove-Item -LiteralPath $installRoot -Force
+        }
+        Write-Success 'SKit and its YAML configuration files were removed.'
+    }
+    else {
+        Write-Success 'SKit binaries, scripts, command files, and tools were removed.'
+        Write-Info "SKit YAML configuration files were kept in $installRoot. Remove them with: skit setup uninstall all"
     }
 }
 
@@ -1639,6 +1728,8 @@ Usage:
 
 Commands:
   skit setup self                          Reinstall SKit and register user PATH
+  skit setup register-path                 Retry user PATH registration
+  skit setup uninstall [all]               Remove SKit; 'all' also removes YAML configuration
   skit setup tools [all|fmodel|repak|uassetgui]
                                               Install latest verified tools
   skit setup set-path <scum-path>          Configure the SCUM installation root
@@ -1674,6 +1765,21 @@ function Invoke-SKitSetupCommand {
             Install-Self
             Write-Success "SKit installed in $script:InstallRoot"
             Write-Info 'Open a new terminal if the skit command is not yet available in this one.'
+        }
+        'register-path' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup register-path'
+            }
+            if (Add-InstallRootToUserPath) {
+                Write-Success 'The SKit directory is registered in the user PATH.'
+            }
+        }
+        'uninstall' {
+            if ($SetupArguments.Count -gt 2 -or
+                ($SetupArguments.Count -eq 2 -and -not $SetupArguments[1].Equals('all', [StringComparison]::OrdinalIgnoreCase))) {
+                throw 'Usage: skit setup uninstall [all]'
+            }
+            Uninstall-SKit -RemoveConfiguration:($SetupArguments.Count -eq 2)
         }
         'tools' {
             if ($SetupArguments.Count -gt 2) {
