@@ -746,6 +746,22 @@ Describe 'SKit uninstallation' {
     }
 }
 
+Describe 'Main help' {
+    It 'orders sections and aligns command descriptions' {
+        $help = Show-Help | Out-String
+
+        $help.IndexOf('Project:') | Should -BeLessThan $help.IndexOf('Files:')
+        $help.IndexOf('Files:') | Should -BeLessThan $help.IndexOf('Setup:')
+        $help.IndexOf('Setup:') | Should -BeLessThan $help.IndexOf('Other:')
+        $help | Should -Match '(?m)^  skit unpack .+\s{2,}Unpack a \.pak with repak$'
+        $help | Should -Match '(?m)^  skit pack .+\s{2,}Pack a directory as UE PAK V11$'
+        $help | Should -Match '(?m)^  skit tojson .+\s{2,}Export as <file>\.full\.json$'
+        $help | Should -Match '(?m)^  skit fromjson .+\s{2,}Convert JSON to \.uasset$'
+        $help | Should -Match '(?m)^  skit bump \[major\|minor\|patch\|build\]\s{7}Increment version; default is minor$'
+        $help | Should -Match '(?m)^  skit release \[major\|minor\]\s{16}Build, then bump release; default is minor$'
+    }
+}
+
 Describe 'SKit Start Menu shortcuts' {
     BeforeEach {
         $script:originalInstallRoot = $script:InstallRoot

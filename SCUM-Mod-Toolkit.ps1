@@ -1761,27 +1761,23 @@ SCUM Mod Toolkit (SKit) $script:SKitVersion
 Usage:
   skit <command> [arguments]
 
-Setup:
-  skit setup help                          Show setup commands
-
-Files:
-  skit unpack <file.pak> [output-dir] [-o|-omit-key]
-                                              Unpack a .pak with repak
-  skit pack <input-dir> [output.pak] [-o|-omit-key]
-                                              Pack a directory as UE PAK V11
-  skit tojson <file.uasset> [version] [mappings]
-                                              Export as <file>.full.json
-  skit fromjson <file.json> [output.uasset] [mappings]
-                                              Convert JSON to .uasset
-
 Project:
   skit init                                 Create skit.yml in the current directory
   skit build                                Build .pak and increment build version
-  skit bump [major|minor|patch|build]        Increment version; default is minor
-  skit release [major|minor]                 Build, then bump release; default is minor
+  skit bump [major|minor|patch|build]       Increment version; default is minor
+  skit release [major|minor]                Build, then bump release; default is minor
   skit install                              Copy the latest build to SCUM\Content\Paks\~mods
   skit test                                 Build and install
   skit play [modded|default]                Start modded by default; default omits mod flags
+
+Files:
+  skit unpack <file.pak> [output-dir] [-o|-omit-key]        Unpack a .pak with repak
+  skit pack <input-dir> [output.pak] [-o|-omit-key]         Pack a directory as UE PAK V11
+  skit tojson <file.uasset> [version] [mappings]            Export as <file>.full.json
+  skit fromjson <file.json> [output.uasset] [mappings]      Convert JSON to .uasset
+
+Setup:
+  skit setup help                          Show setup commands
 
 Other:
   skit version
