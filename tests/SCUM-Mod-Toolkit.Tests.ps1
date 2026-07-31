@@ -848,6 +848,25 @@ Describe 'SCUM AES key discovery' {
             Should -BeTrue
     }
 
+    It 'updates the FModel SCUM entry when SKit has no configured SCUM path' {
+        $expectedKey = '0x0B1F4E543FB798EFC5BD861BB405BE7081CD03698EA9BA06469462A3B113CA81'
+        $settingsPath = Join-Path $TestDrive 'FModel\AppSettings.json'
+        [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $settingsPath))
+        Write-SKitConfig
+        [System.IO.File]::WriteAllText(
+            $settingsPath,
+            '{"PerDirectory":{"D:\\SteamLibrary\\steamapps\\common\\SCUM":{"GameName":"SCUM","GameDirectory":"D:\\SteamLibrary\\steamapps\\common\\SCUM","AesKeys":{"mainKey":"","dynamicKeys":[]}}}}'
+        )
+        Mock Get-FModelSettingsPath { $settingsPath }
+        Mock Get-Process { $null }
+
+        Update-FModelScumAesKey -Key $expectedKey | Should -BeTrue
+
+        $updatedSettings = [System.IO.File]::ReadAllText($settingsPath) | ConvertFrom-Json
+        $updatedSettings.PerDirectory.'D:\SteamLibrary\steamapps\common\SCUM'.AesKeys.mainKey |
+            Should -Be $expectedKey
+    }
+
     It 'rejects content without a valid SCUM key' {
         { Get-ScumAesKeyFromContent -Content '<p>SCUM 0x1234</p>' } |
             Should -Throw '*valid 256-bit AES key*'
