@@ -165,6 +165,31 @@ scumAesKey: ''
 scumStartParams: '-windowed -ResX=1920 -ResY=1080'
 ```
 
+## Configure FModel for SCUM
+
+Start FModel after installing the tools. For example, enter the following in
+Command Prompt or PowerShell:
+
+```powershell
+fmodel
+```
+
+When the **Instruction** dialog appears:
+
+1. Select **Add undetected game**.
+2. Click **...**, browse to the SCUM installation root, and select it. For
+   example: `D:\SteamLibrary\steamapps\common\SCUM`.
+3. Click the **+** button beside **...**.
+4. Confirm that the first three fields are:
+   - **Detected Game:** `SCUM`
+   - **UE Versions:** `GAME_UE4_27`
+   - **Directory:** the selected SCUM installation root
+5. Click **OK**, wait for FModel to finish detecting the game, then close
+   FModel.
+
+Next, follow the existing SKit instructions for locating your SCUM AES key.
+To enter it manually in FModel, open **Directory > AES > Main Static Key**.
+
 ## File commands
 
 ```powershell
