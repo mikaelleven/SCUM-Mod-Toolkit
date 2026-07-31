@@ -28,6 +28,7 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 $script:SKitReleaseFiles = @(
     'SCUM-Mod-Toolkit.ps1',
     'README.md',
+    'CHANGELOG.md',
     'LICENSE',
     'THIRD-PARTY-NOTICES.md'
 )

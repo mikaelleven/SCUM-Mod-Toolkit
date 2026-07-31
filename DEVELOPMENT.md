@@ -413,7 +413,7 @@ files:
    ```
 
    The archive root is `SCUM-Mod-Toolkit-<version>` and its allowlist is
-   `SCUM-Mod-Toolkit.ps1`, `README.md`, `LICENSE`, and
+   `SCUM-Mod-Toolkit.ps1`, `README.md`, `CHANGELOG.md`, `LICENSE`, and
    `THIRD-PARTY-NOTICES.md`. It must not include bootstrap, release, test, or
    other development files.
 8. After committing the release changes, publish with:

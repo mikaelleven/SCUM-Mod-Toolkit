@@ -25,6 +25,7 @@ Describe 'SKit release publishing' {
             "`$script:SKitVersion = '1.2.3.4'`r`n"
         )
         [System.IO.File]::WriteAllText((Join-Path $repositoryRoot 'README.md'), 'Guide')
+        [System.IO.File]::WriteAllText((Join-Path $repositoryRoot 'CHANGELOG.md'), 'History')
         [System.IO.File]::WriteAllText((Join-Path $repositoryRoot 'LICENSE'), 'MIT')
         [System.IO.File]::WriteAllText((Join-Path $repositoryRoot 'THIRD-PARTY-NOTICES.md'), 'Notices')
         [System.IO.File]::WriteAllText((Join-Path $repositoryRoot 'Install-SKit.ps1'), 'development')
@@ -41,6 +42,7 @@ Describe 'SKit release publishing' {
         $release.Version | Should -Be '1.2.3.4'
         $release.Tag | Should -Be 'v1.2.3.4'
         $entries | Should -Be @(
+            'SCUM-Mod-Toolkit-1.2.3.4/CHANGELOG.md',
             'SCUM-Mod-Toolkit-1.2.3.4/LICENSE',
             'SCUM-Mod-Toolkit-1.2.3.4/README.md',
             'SCUM-Mod-Toolkit-1.2.3.4/SCUM-Mod-Toolkit.ps1',
