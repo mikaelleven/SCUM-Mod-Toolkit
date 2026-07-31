@@ -68,6 +68,11 @@ During normal execution, `Ensure-SelfInstalled` runs before the command:
 - `setup register-path` retries registration of the installation directory in
   the user `PATH` without requiring elevation. A registration failure is a
   warning and must not invalidate an otherwise successful installation.
+- `setup uninstall` removes installed SKit scripts, command files, tool
+  directories, and other SKit files while retaining YAML configuration files.
+  `setup uninstall all` asks for Y/N confirmation before removing YAML files.
+  It never removes external application configuration, including FModel
+  settings outside the SKit installation directory.
 - A successful setup self operation removes the obsolete installed
   `skit.ps1`.
 
@@ -241,6 +246,11 @@ forms are not accepted.
 `setup register-path` uses the `User` environment-variable scope, so it does
 not require administrator rights. A system `PATH` change is neither needed
 nor attempted.
+
+`setup uninstall` removes only validated paths below the SKit installation
+directory. It removes the SKit user PATH entry when possible. The default
+form retains root-level `.yaml` and `.yml` files; the `all` form prompts
+before removing them.
 
 `setup set-startparams <parameter-string>` stores the complete string as
 `scumStartParams`. An explicitly empty string clears it. Both `play` modes

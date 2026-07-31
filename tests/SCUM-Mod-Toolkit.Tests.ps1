@@ -601,6 +601,7 @@ Describe 'Setup command dispatch' {
         Mock Open-SKitConfig {}
         Mock Set-SKitStartParameters {}
         Mock Add-InstallRootToUserPath { $true }
+        Mock Uninstall-SKit {}
     }
 
     It 'shows dedicated setup help' {
@@ -609,6 +610,7 @@ Describe 'Setup command dispatch' {
         $help | Should -Match 'skit setup open-config'
         $help | Should -Match 'skit setup detect-path'
         $help | Should -Match 'skit setup register-path'
+        $help | Should -Match 'skit setup uninstall \[all\]'
     }
 
     It 'installs all tools by default' {
@@ -631,6 +633,22 @@ Describe 'Setup command dispatch' {
         Invoke-SKitSetupCommand -SetupArguments @('register-path')
 
         Assert-MockCalled Add-InstallRootToUserPath -Times 1
+    }
+
+    It 'uninstalls SKit without removing configuration by default' {
+        Invoke-SKitSetupCommand -SetupArguments @('uninstall')
+
+        Assert-MockCalled Uninstall-SKit -Times 1 -ParameterFilter {
+            -not $RemoveConfiguration
+        }
+    }
+
+    It 'requires the all option to remove SKit configuration' {
+        Invoke-SKitSetupCommand -SetupArguments @('uninstall', 'all')
+
+        Assert-MockCalled Uninstall-SKit -Times 1 -ParameterFilter {
+            $RemoveConfiguration
+        }
     }
 
     It 'dispatches set-path with the complete path argument' {
@@ -668,6 +686,60 @@ Describe 'Setup command dispatch' {
     It 'rejects an unknown setup command' {
         { Invoke-SKitSetupCommand -SetupArguments @('detect-scum') } |
             Should -Throw '*Run: skit setup help*'
+    }
+}
+
+Describe 'SKit uninstallation' {
+    BeforeEach {
+        $script:originalInstallRoot = $script:InstallRoot
+        $script:originalToolsRoot = $script:ToolsRoot
+        $script:InstallRoot = Join-Path $TestDrive 'SKit'
+        $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
+        [void][System.IO.Directory]::CreateDirectory($script:ToolsRoot)
+        [System.IO.File]::WriteAllText((Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1'), 'script')
+        [System.IO.File]::WriteAllText((Join-Path $script:InstallRoot 'skit.cmd'), 'launcher')
+        [System.IO.File]::WriteAllText((Join-Path $script:ToolsRoot 'repak.exe'), 'tool')
+        [System.IO.File]::WriteAllText((Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml'), 'scumPath: ''''')
+        $script:fmodelConfigPath = Join-Path $TestDrive 'FModel\AppSettings.json'
+        [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $script:fmodelConfigPath))
+        [System.IO.File]::WriteAllText($script:fmodelConfigPath, '{}')
+        Mock Remove-InstallRootFromUserPath {}
+        Mock Read-Host { 'Y' }
+    }
+
+    AfterEach {
+        $script:InstallRoot = $script:originalInstallRoot
+        $script:ToolsRoot = $script:originalToolsRoot
+    }
+
+    It 'removes SKit files and tools but keeps YAML and external program configuration by default' {
+        Uninstall-SKit
+
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1')) | Should -BeFalse
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'skit.cmd')) | Should -BeFalse
+        (Test-Path -LiteralPath $script:ToolsRoot) | Should -BeFalse
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml')) | Should -BeTrue
+        (Test-Path -LiteralPath $script:fmodelConfigPath) | Should -BeTrue
+        Assert-MockCalled Remove-InstallRootFromUserPath -Times 1
+    }
+
+    It 'removes YAML configuration only after confirmation' {
+        Uninstall-SKit -RemoveConfiguration
+
+        (Test-Path -LiteralPath $script:InstallRoot) | Should -BeFalse
+        (Test-Path -LiteralPath $script:fmodelConfigPath) | Should -BeTrue
+        Assert-MockCalled Read-Host -Times 1
+    }
+
+    It 'does not remove files when configuration removal is declined' {
+        Mock Read-Host { 'N' }
+
+        Uninstall-SKit -RemoveConfiguration
+
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.ps1')) | Should -BeTrue
+        (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml')) | Should -BeTrue
+        (Test-Path -LiteralPath $script:ToolsRoot) | Should -BeTrue
+        Assert-MockCalled Remove-InstallRootFromUserPath -Times 0
     }
 }
 

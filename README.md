@@ -118,6 +118,24 @@ Show all setup commands:
 skit setup help
 ```
 
+To uninstall SKit, including its installed scripts, command files, and tools,
+while keeping the YAML configuration files:
+
+```powershell
+skit setup uninstall
+```
+
+SKit confirms that the YAML configuration files were kept. To remove those
+files too, use the following command and confirm the Y/N prompt:
+
+```powershell
+skit setup uninstall all
+```
+
+Uninstallation removes only files below `%LOCALAPPDATA%\Programs\SKit` and
+does not remove other applications' configuration files, such as FModel
+settings.
+
 Custom SCUM launch parameters can be configured from the CLI:
 
 ```powershell

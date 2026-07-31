@@ -10,6 +10,15 @@ All notable SKit changes are documented in this file.
   GitHub release with mandatory SHA-256 verification, self-installation,
   current-session PATH refresh, and post-installation version verification.
 
+## 1.1.0.9 - 2026-07-31
+
+### Added
+
+- Added `skit setup uninstall` to remove installed SKit scripts, command
+  files, and tools while retaining YAML configuration files by default.
+- Added `skit setup uninstall all`, with Y/N confirmation before YAML
+  configuration files are removed.
+
 ## 1.1.0.8 - 2026-07-31
 
 ### Added
