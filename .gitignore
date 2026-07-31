@@ -8,6 +8,7 @@ SCUM-AES-Key.txt
 tools/
 *.exe
 *.dll
+*.cmd
 
 # Game and generated mod content
 build/
