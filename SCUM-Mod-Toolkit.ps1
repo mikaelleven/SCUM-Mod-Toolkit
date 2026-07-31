@@ -169,6 +169,64 @@ function Remove-InstallRootFromUserPath {
     }
 }
 
+function Get-SKitStartMenuProgramsPath {
+    $programsPath = [Environment]::GetFolderPath([Environment+SpecialFolder]::Programs)
+    if ([string]::IsNullOrWhiteSpace($programsPath)) {
+        throw 'Could not determine the current user Start Menu Programs directory.'
+    }
+    return $programsPath
+}
+
+function Get-SKitShortcutShell {
+    return New-Object -ComObject WScript.Shell
+}
+
+function Add-SKitStartMenuShortcut {
+    param(
+        [Parameter(Mandatory)][hashtable]$ToolDefinition,
+        [Parameter(Mandatory)][string]$TargetPath
+    )
+
+    $programsPath = Get-SKitStartMenuProgramsPath
+    [System.IO.Directory]::CreateDirectory($programsPath) | Out-Null
+    $shortcutPath = Join-Path $programsPath ($ToolDefinition.Name + '.lnk')
+    if (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
+        Write-Info "Start Menu shortcut already exists and was kept: $shortcutPath"
+        return
+    }
+
+    $shell = Get-SKitShortcutShell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = [System.IO.Path]::GetFullPath($TargetPath)
+    $shortcut.WorkingDirectory = Split-Path -Parent $shortcut.TargetPath
+    $shortcut.Save()
+    Write-Info "Created Start Menu shortcut: $shortcutPath"
+}
+
+function Remove-SKitStartMenuShortcut {
+    param([Parameter(Mandatory)][hashtable]$ToolDefinition)
+
+    $programsPath = Get-SKitStartMenuProgramsPath
+    $shortcutPath = Join-Path $programsPath ($ToolDefinition.Name + '.lnk')
+    if (-not (Test-Path -LiteralPath $shortcutPath -PathType Leaf)) {
+        return
+    }
+
+    $expectedTargetPath = [System.IO.Path]::GetFullPath(
+        (Join-Path (Join-Path $script:ToolsRoot $ToolDefinition.Id) $ToolDefinition.Executable)
+    )
+    $shell = Get-SKitShortcutShell
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $actualTargetPath = [string]$shortcut.TargetPath
+    if ($actualTargetPath.Equals($expectedTargetPath, [StringComparison]::OrdinalIgnoreCase)) {
+        Remove-Item -LiteralPath $shortcutPath -Force
+        Write-Info "Removed SKit Start Menu shortcut: $shortcutPath"
+    }
+    else {
+        Write-Info "Start Menu shortcut was kept because it targets a different path: $shortcutPath"
+    }
+}
+
 function Uninstall-SKit {
     param([switch]$RemoveConfiguration)
 
@@ -195,6 +253,9 @@ function Uninstall-SKit {
     $expectedToolsRoot = Join-Path $installRoot 'tools'
     if (-not $toolsRoot.Equals($expectedToolsRoot, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to remove an unexpected tools directory: $toolsRoot"
+    }
+    foreach ($tool in @('fmodel', 'uassetgui')) {
+        Remove-SKitStartMenuShortcut -ToolDefinition (Get-ToolDefinition -Tool $tool)
     }
     if (Test-Path -LiteralPath $toolsRoot -PathType Container) {
         Remove-Item -LiteralPath $toolsRoot -Recurse -Force
@@ -489,6 +550,9 @@ function Install-Tool {
         Write-CommandShim `
             -Name $definition.Name `
             -RelativeExecutable "tools\$($definition.Id)\$($definition.Executable)"
+        if ($definition.Id -in @('fmodel', 'uassetgui')) {
+            Add-SKitStartMenuShortcut -ToolDefinition $definition -TargetPath (Join-Path $toolDirectory $definition.Executable)
+        }
         Write-Success "$($definition.Name) $($release.tag_name) installed."
     }
     finally {
@@ -1735,7 +1799,8 @@ Usage:
 Commands:
   skit setup self                          Reinstall SKit and register user PATH
   skit setup register-path                 Retry user PATH registration
-  skit setup uninstall [all]               Remove SKit; 'all' also removes YAML configuration
+  skit setup uninstall                     Remove SKit and tools; keep YAML configuration
+  skit setup uninstall all                 Also remove YAML configuration after confirmation
   skit setup tools [all|fmodel|repak|uassetgui]
                                               Install latest verified tools
   skit setup set-path <scum-path>          Configure the SCUM installation root

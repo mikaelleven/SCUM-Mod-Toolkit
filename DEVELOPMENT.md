@@ -71,6 +71,8 @@ During normal execution, `Ensure-SelfInstalled` runs before the command:
   warning and must not invalidate an otherwise successful installation.
 - `setup uninstall` removes installed SKit scripts, command files, tool
   directories, and other SKit files while retaining YAML configuration files.
+  It removes the FModel and UAssetGUI Start Menu shortcuts only when their
+  targets exactly match the corresponding executable installed by SKit.
   `setup uninstall all` asks for Y/N confirmation before removing YAML files.
   It never removes external application configuration, including FModel
   settings outside the SKit installation directory.
@@ -134,6 +136,10 @@ text, HTML, or a separate unverified file.
 The local hash is calculated with
 `System.Security.Cryptography.SHA256`; SKit does not depend on the optional
 `Get-FileHash` cmdlet.
+
+After a successful installation, FModel and UAssetGUI receive a shortcut in
+the current user's Start Menu Programs directory when the corresponding
+`.lnk` filename is unused. An existing shortcut is never overwritten.
 
 ### Command contracts
 

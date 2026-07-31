@@ -610,7 +610,8 @@ Describe 'Setup command dispatch' {
         $help | Should -Match 'skit setup open-config'
         $help | Should -Match 'skit setup detect-path'
         $help | Should -Match 'skit setup register-path'
-        $help | Should -Match 'skit setup uninstall \[all\]'
+        $help | Should -Match 'skit setup uninstall\s+Remove SKit and tools; keep YAML configuration'
+        $help | Should -Match 'skit setup uninstall all\s+Also remove YAML configuration after confirmation'
     }
 
     It 'installs all tools by default' {
@@ -704,6 +705,7 @@ Describe 'SKit uninstallation' {
         [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $script:fmodelConfigPath))
         [System.IO.File]::WriteAllText($script:fmodelConfigPath, '{}')
         Mock Remove-InstallRootFromUserPath {}
+        Mock Remove-SKitStartMenuShortcut {}
         Mock Read-Host { 'Y' }
     }
 
@@ -721,6 +723,7 @@ Describe 'SKit uninstallation' {
         (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml')) | Should -BeTrue
         (Test-Path -LiteralPath $script:fmodelConfigPath) | Should -BeTrue
         Assert-MockCalled Remove-InstallRootFromUserPath -Times 1
+        Assert-MockCalled Remove-SKitStartMenuShortcut -Times 2
     }
 
     It 'removes YAML configuration only after confirmation' {
@@ -740,6 +743,77 @@ Describe 'SKit uninstallation' {
         (Test-Path -LiteralPath (Join-Path $script:InstallRoot 'SCUM-Mod-Toolkit.yaml')) | Should -BeTrue
         (Test-Path -LiteralPath $script:ToolsRoot) | Should -BeTrue
         Assert-MockCalled Remove-InstallRootFromUserPath -Times 0
+    }
+}
+
+Describe 'SKit Start Menu shortcuts' {
+    BeforeEach {
+        $script:originalInstallRoot = $script:InstallRoot
+        $script:originalToolsRoot = $script:ToolsRoot
+        $script:InstallRoot = Join-Path $TestDrive 'SKit'
+        $script:ToolsRoot = Join-Path $script:InstallRoot 'tools'
+        $script:programsPath = Join-Path $TestDrive 'Programs'
+        [void][System.IO.Directory]::CreateDirectory($script:programsPath)
+        Mock Get-SKitStartMenuProgramsPath { $script:programsPath }
+    }
+
+    AfterEach {
+        $script:InstallRoot = $script:originalInstallRoot
+        $script:ToolsRoot = $script:originalToolsRoot
+    }
+
+    It 'creates a FModel shortcut when no same-named shortcut exists' {
+        $shortcutPath = Join-Path $script:programsPath 'FModel.lnk'
+        $targetPath = Join-Path $script:ToolsRoot 'fmodel\FModel.exe'
+        $script:saved = $false
+        $shortcut = [pscustomobject]@{ TargetPath = ''; WorkingDirectory = '' }
+        $shortcut | Add-Member -MemberType ScriptMethod -Name Save -Value { $script:saved = $true }
+        $shell = [pscustomobject]@{}
+        $shell | Add-Member -MemberType ScriptMethod -Name CreateShortcut -Value { param($Path) $shortcut }
+        Mock Get-SKitShortcutShell { $shell }
+
+        Add-SKitStartMenuShortcut -ToolDefinition (Get-ToolDefinition -Tool fmodel) -TargetPath $targetPath
+
+        $shortcut.TargetPath | Should -Be ([System.IO.Path]::GetFullPath($targetPath))
+        $shortcut.WorkingDirectory | Should -Be (Split-Path -Parent ([System.IO.Path]::GetFullPath($targetPath)))
+        $script:saved | Should -BeTrue
+        Assert-MockCalled Get-SKitShortcutShell -Times 1
+    }
+
+    It 'keeps an existing same-named shortcut without overwriting it' {
+        [System.IO.File]::WriteAllText((Join-Path $script:programsPath 'UAssetGUI.lnk'), 'existing')
+        Mock Get-SKitShortcutShell {}
+
+        Add-SKitStartMenuShortcut -ToolDefinition (Get-ToolDefinition -Tool uassetgui) -TargetPath 'C:\Ignored\UAssetGUI.exe'
+
+        Assert-MockCalled Get-SKitShortcutShell -Times 0
+    }
+
+    It 'removes a shortcut only when it targets the SKit-installed executable' {
+        $shortcutPath = Join-Path $script:programsPath 'FModel.lnk'
+        [System.IO.File]::WriteAllText($shortcutPath, 'shortcut')
+        $expectedTarget = Join-Path $script:ToolsRoot 'fmodel\FModel.exe'
+        $shortcut = [pscustomobject]@{ TargetPath = [System.IO.Path]::GetFullPath($expectedTarget) }
+        $shell = [pscustomobject]@{}
+        $shell | Add-Member -MemberType ScriptMethod -Name CreateShortcut -Value { param($Path) $shortcut }
+        Mock Get-SKitShortcutShell { $shell }
+
+        Remove-SKitStartMenuShortcut -ToolDefinition (Get-ToolDefinition -Tool fmodel)
+
+        (Test-Path -LiteralPath $shortcutPath) | Should -BeFalse
+    }
+
+    It 'keeps a shortcut that targets a different executable path' {
+        $shortcutPath = Join-Path $script:programsPath 'UAssetGUI.lnk'
+        [System.IO.File]::WriteAllText($shortcutPath, 'shortcut')
+        $shortcut = [pscustomobject]@{ TargetPath = 'C:\Other\UAssetGUI.exe' }
+        $shell = [pscustomobject]@{}
+        $shell | Add-Member -MemberType ScriptMethod -Name CreateShortcut -Value { param($Path) $shortcut }
+        Mock Get-SKitShortcutShell { $shell }
+
+        Remove-SKitStartMenuShortcut -ToolDefinition (Get-ToolDefinition -Tool uassetgui)
+
+        (Test-Path -LiteralPath $shortcutPath) | Should -BeTrue
     }
 }
 

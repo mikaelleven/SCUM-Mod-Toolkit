@@ -305,6 +305,8 @@ skit setup tools uassetgui
 ```
 
 After installation, `FModel`, `repak`, and `UAssetGUI` can be started directly from a new terminal.
+SKit also creates Start Menu shortcuts for FModel and UAssetGUI when their
+shortcut filenames are available. Existing same-named shortcuts are kept.
 
 ## License and third-party software
 
