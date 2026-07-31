@@ -15,6 +15,20 @@ All notable SKit changes are documented in this file.
   GitHub release with mandatory SHA-256 verification, self-installation,
   current-session PATH refresh, and post-installation version verification.
 
+## 1.1.0.11 - 2026-07-31
+
+### Changed
+
+- Added `CHANGELOG.md` to the end-user GitHub release archive.
+
+## 1.1.0.10 - 2026-07-31
+
+### Added
+
+- Added `Publish-SKitRelease.ps1` to build a verified end-user release archive
+  and, with explicit `-Publish`, create and push the Git tag and publish the
+  GitHub release through GitHub CLI.
+
 ## 1.1.0.9 - 2026-07-31
 
 ### Added

@@ -10,6 +10,9 @@ tools/
 *.dll
 *.cmd
 
+# Locally generated GitHub release archives
+release/
+
 # Game and generated mod content
 build/
 *.pak
