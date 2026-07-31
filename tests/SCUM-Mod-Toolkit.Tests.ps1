@@ -600,6 +600,7 @@ Describe 'Setup command dispatch' {
         Mock Get-AndConfigureScumAesKey {}
         Mock Open-SKitConfig {}
         Mock Set-SKitStartParameters {}
+        Mock Add-InstallRootToUserPath { $true }
     }
 
     It 'shows dedicated setup help' {
@@ -607,6 +608,7 @@ Describe 'Setup command dispatch' {
 
         $help | Should -Match 'skit setup open-config'
         $help | Should -Match 'skit setup detect-path'
+        $help | Should -Match 'skit setup register-path'
     }
 
     It 'installs all tools by default' {
@@ -623,6 +625,12 @@ Describe 'Setup command dispatch' {
         Assert-MockCalled Install-Tools -Times 1 -ParameterFilter {
             $Selection -eq 'repak'
         }
+    }
+
+    It 'retries user PATH registration' {
+        Invoke-SKitSetupCommand -SetupArguments @('register-path')
+
+        Assert-MockCalled Add-InstallRootToUserPath -Times 1
     }
 
     It 'dispatches set-path with the complete path argument' {

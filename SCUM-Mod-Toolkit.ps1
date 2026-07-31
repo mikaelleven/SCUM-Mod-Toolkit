@@ -25,7 +25,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$script:SKitVersion = '1.1.0.7'
+$script:SKitVersion = '1.1.0.8'
 $script:ProjectFileName = 'skit.yml'
 $script:DefaultEngineVersion = 'VER_UE4_27'
 $script:GitHubApiVersion = '2026-03-10'
@@ -99,37 +99,52 @@ function Write-CommandShim {
 }
 
 function Add-InstallRootToUserPath {
-    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @()
-    if (-not [string]::IsNullOrWhiteSpace($userPath)) {
-        $entries = @($userPath.Split(';') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    }
-
     $normalizedInstallRoot = $script:InstallRoot.TrimEnd('\')
-    $alreadyRegistered = $false
-    foreach ($entry in $entries) {
-        $expandedEntry = [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\')
-        if ($expandedEntry.Equals($normalizedInstallRoot, [StringComparison]::OrdinalIgnoreCase)) {
-            $alreadyRegistered = $true
-            break
+    try {
+        $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $entries = @()
+        if (-not [string]::IsNullOrWhiteSpace($userPath)) {
+            $entries = @($userPath.Split(';') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $alreadyRegistered = $false
+        foreach ($entry in $entries) {
+            $expandedEntry = [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\')
+            if ($expandedEntry.Equals($normalizedInstallRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                $alreadyRegistered = $true
+                break
+            }
+        }
+
+        if (-not $alreadyRegistered) {
+            $newUserPath = (@($entries) + $script:InstallRoot) -join ';'
+            [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+            Write-Info 'Added the SKit directory to the user PATH.'
         }
     }
-
-    if (-not $alreadyRegistered) {
-        $newUserPath = (@($entries) + $script:InstallRoot) -join ';'
-        [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
-        Write-Info 'Added the SKit directory to the user PATH.'
+    catch {
+        Write-Warning "Could not register the SKit directory in the user PATH. Run 'skit setup register-path' later. $($_.Exception.Message)"
+        return $false
     }
 
-    $processEntries = @($env:Path.Split(';'))
+    $processEntries = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:Path)) {
+        $processEntries = @($env:Path.Split(';'))
+    }
     if (-not ($processEntries | Where-Object {
                 ([Environment]::ExpandEnvironmentVariables($_).TrimEnd('\')).Equals(
                     $normalizedInstallRoot,
                     [StringComparison]::OrdinalIgnoreCase
                 )
             })) {
-        $env:Path = "$env:Path;$script:InstallRoot"
+        $env:Path = if ([string]::IsNullOrWhiteSpace($env:Path)) {
+            $script:InstallRoot
+        }
+        else {
+            "$env:Path;$script:InstallRoot"
+        }
     }
+    return $true
 }
 
 function Install-Self {
@@ -1639,6 +1654,7 @@ Usage:
 
 Commands:
   skit setup self                          Reinstall SKit and register user PATH
+  skit setup register-path                 Retry user PATH registration
   skit setup tools [all|fmodel|repak|uassetgui]
                                               Install latest verified tools
   skit setup set-path <scum-path>          Configure the SCUM installation root
@@ -1674,6 +1690,14 @@ function Invoke-SKitSetupCommand {
             Install-Self
             Write-Success "SKit installed in $script:InstallRoot"
             Write-Info 'Open a new terminal if the skit command is not yet available in this one.'
+        }
+        'register-path' {
+            if ($SetupArguments.Count -ne 1) {
+                throw 'Usage: skit setup register-path'
+            }
+            if (Add-InstallRootToUserPath) {
+                Write-Success 'The SKit directory is registered in the user PATH.'
+            }
         }
         'tools' {
             if ($SetupArguments.Count -gt 2) {

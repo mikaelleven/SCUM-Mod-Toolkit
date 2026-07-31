@@ -34,9 +34,17 @@ The latest GitHub release must contain either
 `sha256:<64 hex characters>` digest metadata.
 
 After installation, the bootstrap script verifies `skit version` and reloads
-the SKit directory into `PATH` for the current PowerShell session. If the
-command is still unavailable because of a system-managed policy or
-environment restriction, open a new PowerShell terminal and run:
+the SKit directory into `PATH` for the current PowerShell session. SKit
+registers its directory in the user `PATH`, which normally does not require
+administrator rights. If registration is blocked by a managed profile or
+environment restriction, installation still succeeds and shows a warning.
+Retry it later with:
+
+```powershell
+skit setup register-path
+```
+
+If the command is still unavailable, open a new PowerShell terminal and run:
 
 ```powershell
 skit version

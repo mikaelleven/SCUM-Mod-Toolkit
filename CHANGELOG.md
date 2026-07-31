@@ -10,6 +10,20 @@ All notable SKit changes are documented in this file.
   GitHub release with mandatory SHA-256 verification, self-installation,
   current-session PATH refresh, and post-installation version verification.
 
+## 1.1.0.8 - 2026-07-31
+
+### Added
+
+- Added `skit setup register-path` to retry user PATH registration after a
+  managed-profile or environment failure.
+
+### Fixed
+
+- Prevented self-installation output from being interpreted as an installer
+  exit code.
+- Made failed user PATH registration a warning so a successful installation
+  remains usable.
+
 ## 1.1.0.7 - 2026-07-30
 
 ### Fixed
