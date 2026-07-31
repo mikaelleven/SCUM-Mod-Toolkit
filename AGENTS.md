@@ -80,3 +80,29 @@ Whenever the user asks for a Git commit, increment the final component of
 `$script:SKitVersion` before creating it unless the user explicitly requests
 otherwise. Update `CHANGELOG.md`, run the required checks, and include all
 intended changes in the commit.
+
+## GitHub releases
+
+Before preparing a release, synchronize the local `master` branch with
+GitHub. The working tree must be clean, then run:
+
+```powershell
+git fetch origin
+git pull --ff-only origin master
+```
+
+Do not create a release from a local branch that is behind `origin/master`.
+
+When an automation or outer PowerShell process invokes the publishing script,
+escape `$false` so Windows PowerShell receives it as a Boolean expression:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '.\Publish-SKitRelease.ps1' -Publish -Confirm:`$false"
+```
+
+From an already interactive Windows PowerShell session, invoke the script
+directly instead:
+
+```powershell
+.\Publish-SKitRelease.ps1 -Publish -Confirm:$false
+```

@@ -404,13 +404,20 @@ files:
 
 ## SKit release checklist
 
-1. Implement the change and tests.
-2. Run Pester in Windows PowerShell 5.1.
-3. Run relevant smoke and end-to-end tests.
-4. Update `README.md`, `DEVELOPMENT.md`, and `CHANGELOG.md`.
-5. Increment `$script:SKitVersion` according to SemVer for the tool itself.
-6. Confirm that `skit version` displays the same version.
-7. Create and inspect the ZIP with:
+1. Confirm the working tree is clean, then synchronize `master` with GitHub:
+
+   ```powershell
+   git fetch origin
+   git pull --ff-only origin master
+   ```
+
+2. Implement the change and tests.
+3. Run Pester in Windows PowerShell 5.1.
+4. Run relevant smoke and end-to-end tests.
+5. Update `README.md`, `DEVELOPMENT.md`, and `CHANGELOG.md`.
+6. Increment `$script:SKitVersion` according to SemVer for the tool itself.
+7. Confirm that `skit version` displays the same version.
+8. Create and inspect the ZIP with:
 
    ```powershell
    .\Publish-SKitRelease.ps1
@@ -420,19 +427,22 @@ files:
    `SCUM-Mod-Toolkit.ps1`, `README.md`, `CHANGELOG.md`, `LICENSE`, and
    `THIRD-PARTY-NOTICES.md`. It must not include bootstrap, release, test, or
    other development files.
-8. After committing the release changes, publish with:
+9. After committing the release changes, publish with:
 
    ```powershell
-   .\Publish-SKitRelease.ps1 -Publish
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '.\Publish-SKitRelease.ps1' -Publish -Confirm:`$false"
    ```
 
-   The script requires a clean Git working tree, creates and pushes tag
-   `v<version>`, uploads `SCUM-Mod-Toolkit-<version>.zip`, and uses GitHub CLI
-   generated release notes. Confirm that the GitHub release API reports its
-   SHA-256 digest.
-9. Inspect the ZIP and confirm that it includes `LICENSE` and
+   The backtick escapes `$false` for the outer PowerShell process. From an
+   interactive Windows PowerShell session, use
+   `.\Publish-SKitRelease.ps1 -Publish -Confirm:$false` directly. The script
+   requires a clean Git working tree, creates and pushes tag `v<version>`,
+   uploads `SCUM-Mod-Toolkit-<version>.zip`, and uses GitHub CLI generated
+   release notes. Confirm that the GitHub release API reports its SHA-256
+   digest.
+10. Inspect the ZIP and confirm that it includes `LICENSE` and
    `THIRD-PARTY-NOTICES.md` but no third-party binaries, game files, AES
    keys, configuration files, or generated mod content.
-10. Run the published `irm ... | iex` command in a clean Windows PowerShell
+11. Run the published `irm ... | iex` command in a clean Windows PowerShell
     5.1 session.
-11. Document what was verified and what still requires real-world testing.
+12. Document what was verified and what still requires real-world testing.
