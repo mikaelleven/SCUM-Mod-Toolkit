@@ -18,7 +18,7 @@ SKit downloads external tools but does not install their runtime dependencies.
 The recommended installation method is the PowerShell bootstrap script:
 
 ```powershell
-irm https://raw.githubusercontent.com/w33zl/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
+irm https://raw.githubusercontent.com/mikaelleven/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
 ```
 
 Review `Install-SKit.ps1` before running the command. The bootstrap installer
