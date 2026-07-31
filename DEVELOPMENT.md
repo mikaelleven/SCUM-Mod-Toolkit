@@ -21,6 +21,7 @@ manager.
 ```text
 SCUM-Mod-Toolkit.ps1       Complete runtime implementation
 Install-SKit.ps1           Verified GitHub release bootstrap installer
+Publish-SKitRelease.ps1    Builds and optionally publishes GitHub releases
 skit.cmd                   Local launcher for the PowerShell script
 README.md                  User guide
 AGENTS.md                  Permanent Codex rules
@@ -405,9 +406,26 @@ files:
 4. Update `README.md`, `DEVELOPMENT.md`, and `CHANGELOG.md`.
 5. Increment `$script:SKitVersion` according to SemVer for the tool itself.
 6. Confirm that `skit version` displays the same version.
-7. Create a ZIP with root directory `SCUM-Mod-Toolkit-<version>`.
-8. Upload the ZIP as `SCUM-Mod-Toolkit-<version>.zip` and confirm that the
-   GitHub release API reports its SHA-256 digest.
+7. Create and inspect the ZIP with:
+
+   ```powershell
+   .\Publish-SKitRelease.ps1
+   ```
+
+   The archive root is `SCUM-Mod-Toolkit-<version>` and its allowlist is
+   `SCUM-Mod-Toolkit.ps1`, `README.md`, `LICENSE`, and
+   `THIRD-PARTY-NOTICES.md`. It must not include bootstrap, release, test, or
+   other development files.
+8. After committing the release changes, publish with:
+
+   ```powershell
+   .\Publish-SKitRelease.ps1 -Publish
+   ```
+
+   The script requires a clean Git working tree, creates and pushes tag
+   `v<version>`, uploads `SCUM-Mod-Toolkit-<version>.zip`, and uses GitHub CLI
+   generated release notes. Confirm that the GitHub release API reports its
+   SHA-256 digest.
 9. Inspect the ZIP and confirm that it includes `LICENSE` and
    `THIRD-PARTY-NOTICES.md` but no third-party binaries, game files, AES
    keys, configuration files, or generated mod content.
