@@ -22,6 +22,10 @@ Describe 'SKit bootstrap installer compatibility' {
         $headers.Accept | Should -Be 'application/vnd.github+json'
         $headers.'X-GitHub-Api-Version' | Should -Be '2026-03-10'
     }
+
+    It 'uses the current published SKit repository' {
+        $script:SKitInstallerRepository | Should -Be 'mikaelleven/SCUM-Mod-Toolkit'
+    }
 }
 
 Describe 'SKit bootstrap release verification' {

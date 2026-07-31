@@ -76,7 +76,7 @@ return exit code `1`.
 `Install-SKit.ps1` is the public bootstrap entry point for:
 
 ```powershell
-irm https://raw.githubusercontent.com/w33zl/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
+irm https://raw.githubusercontent.com/mikaelleven/SCUM-Mod-Toolkit/master/Install-SKit.ps1 | iex
 ```
 
 The repository is configured in `$script:SKitInstallerRepository`. Update
