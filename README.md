@@ -4,6 +4,9 @@ SKit is a PowerShell tool for Windows that installs and provides FModel,
 repak, and UAssetGUI through the `skit` command. It also includes a simple
 project workflow for building, installing, and testing SCUM mods.
 
+<img width="1850" height="1014" alt="image" src="https://github.com/user-attachments/assets/bf7a45bb-36a6-42e0-bc12-879007dedcb8" />
+
+
 ## Requirements
 
 - Windows 10+
