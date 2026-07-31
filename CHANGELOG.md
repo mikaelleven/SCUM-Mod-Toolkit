@@ -4,6 +4,8 @@ All notable SKit changes are documented in this file.
 
 ## Unreleased
 
+## 1.1.0.12 - 2026-07-31
+
 ### Fixed
 
 - Allowed `skit setup get-key` to update an existing FModel SCUM entry before
