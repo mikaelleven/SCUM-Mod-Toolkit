@@ -230,6 +230,10 @@ configuration merge when it is missing. It first asks Windows to open the
 file through its YAML association and falls back to `notepad.exe` if that
 fails.
 
+`setup get-key` stores the downloaded key even when `scumPath` is empty. For
+an existing FModel SCUM entry, SKit identifies the entry by its `GameName`
+when a configured SCUM path is unavailable and updates only its AES key.
+
 `setup help` is dispatched separately from the main help and lists only
 setup commands. The former top-level `tools`, `self-install`, and `config`
 forms are not accepted.

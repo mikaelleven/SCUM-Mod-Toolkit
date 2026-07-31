@@ -96,6 +96,10 @@ configuration. SKit expects `0x` followed by 64 hexadecimal characters and
 normalizes the value before passing it to repak. SKit does not provide or
 document where to obtain it.
 
+`skit setup get-key` can be run before configuring the SCUM installation
+path. When FModel already contains a SCUM game entry, SKit also updates that
+entry's AES key without requiring `scumPath`.
+
 Open the global YAML configuration in the default associated editor:
 
 ```powershell

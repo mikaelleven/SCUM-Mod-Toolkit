@@ -1472,18 +1472,19 @@ function Update-FModelScumAesKey {
         return $false
     }
 
-    $config = Read-SKitConfig
-    if ([string]::IsNullOrWhiteSpace($config.ScumPath)) {
-        Write-Info 'SCUM is not configured in SKit; the FModel AES key was not updated.'
-        return $false
-    }
     if ($null -eq $settings.PerDirectory) {
         Write-Info 'FModel has no per-game settings; the FModel AES key was not updated.'
         return $false
     }
 
+    $config = Read-SKitConfig
     $trimCharacters = [char[]]"\/"
-    $normalizedScumPath = $config.ScumPath.TrimEnd($trimCharacters)
+    $normalizedScumPath = if ([string]::IsNullOrWhiteSpace($config.ScumPath)) {
+        ''
+    }
+    else {
+        $config.ScumPath.TrimEnd($trimCharacters)
+    }
     $targetEntry = $null
     foreach ($property in $settings.PerDirectory.PSObject.Properties) {
         $entryPath = [string]$property.Name
@@ -1491,10 +1492,15 @@ function Update-FModelScumAesKey {
             $null -ne $property.Value.PSObject.Properties['GameDirectory']) {
             $entryPath = [string]$property.Value.GameDirectory
         }
-        if ($entryPath.TrimEnd($trimCharacters).Equals(
+        $matchesConfiguredPath = -not [string]::IsNullOrWhiteSpace($normalizedScumPath) -and
+            $entryPath.TrimEnd($trimCharacters).Equals(
                 $normalizedScumPath,
                 [StringComparison]::OrdinalIgnoreCase
-            )) {
+            )
+        $matchesGameName = $null -ne $property.Value -and
+            $null -ne $property.Value.PSObject.Properties['GameName'] -and
+            ([string]$property.Value.GameName).Equals('SCUM', [StringComparison]::OrdinalIgnoreCase)
+        if ($matchesConfiguredPath -or $matchesGameName) {
             $targetEntry = $property.Value
             break
         }

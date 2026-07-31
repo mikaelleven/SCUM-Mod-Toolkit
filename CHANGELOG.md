@@ -4,6 +4,11 @@ All notable SKit changes are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- Allowed `skit setup get-key` to update an existing FModel SCUM entry before
+  a SCUM installation path has been configured.
+
 ### Added
 
 - Added `Install-SKit.ps1` for `irm <URL> | iex` installation from the latest
